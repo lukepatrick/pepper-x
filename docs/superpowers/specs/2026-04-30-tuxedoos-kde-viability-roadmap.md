@@ -5,10 +5,10 @@
 ## Status
 
 ```
-current_workstream:   W6 — AT-SPI app whitelist additions for KDE
-phase:                1  (promoted from Phase 2 — see status log 2026-05-01)
-state:                pending  (W6 awaits brainstorming; W1 done with caveats)
-branch:               (none yet — created when W6 spec is written)
+current_workstream:   W9 — Fix uinput-text fallback path (architectural)
+phase:                1  (promoted from Phase 2 on 2026-05-01 — W6 blocked on missing Qt AT-SPI bridge)
+state:                pending  (W9 awaits brainstorming)
+branch:               (none yet — created when W9 spec is written)
 worktree:             (none yet)
 last_updated:         2026-05-01
 ```
@@ -18,7 +18,7 @@ last_updated:         2026-05-01
 Make `obra/pepper-x` viable on **TuxedoOS 24.04 + KDE Plasma + Wayland**. Daily-driver bar:
 
 - `cargo build --release` succeeds.
-- Hold-to-record types into Kate, KWrite, Konsole, Falkon/Firefox, Kontact. **Note (revised 2026-05-01 from W1 findings):** the plain-uinput fallback path is broken upstream for non-whitelisted apps (`ensure_runtime_supported_backend()` rejects `UINPUT_TEXT_BACKEND_NAME` with "not implemented yet"). To meet the bar on KDE, we need either (a) **W6** AT-SPI whitelist additions so KDE apps take the AT-SPI path that *does* work, or (b) an architectural fix to the uinput-text fallback. W6 is the smaller change and now Phase 1.
+- Hold-to-record types into Kate, KWrite, Konsole, Falkon/Firefox, Kontact. **Note (revised 2026-05-01, revised again later same day from W6 pre-flight findings):** the plain-uinput fallback path is broken upstream for non-whitelisted apps (`ensure_runtime_supported_backend()` rejects `UINPUT_TEXT_BACKEND_NAME` with "not implemented yet"). The original plan was W6 (AT-SPI whitelist additions) so KDE apps take the AT-SPI path. **W6 is now blocked** — TuxedoOS's `libqt6gui6` ships without the Qt AT-SPI accessibility bridge plugin, so Kate/Konsole never register with AT-SPI regardless of any whitelist. **W9 (architectural fix to the uinput-text fallback)** is now Phase 1 — it makes the universal fallback work and bypasses the AT-SPI dependency entirely.
 - KDE Global Shortcut bound to the D-Bus service `com.obra.PepperX.Service` so dictation can be triggered without the GNOME tray icon.
 - Pepper X autostarts on KDE login so the D-Bus service is available when the shortcut fires.
 
@@ -29,23 +29,23 @@ All work merges to `lukepatrick/pepper-x:main`. **No upstream PRs filed from thi
 | ID | Phase | Title | State | Branch | Spec | Plan | Upstream candidate | Notes |
 |----|-------|-------|-------|--------|------|------|---|---|
 | W1 | 1 | Build + first-run on TuxedoOS | `done (caveats)` | `w1-build-and-first-run` (merged) | `2026-04-30-w1-build-and-first-run-design.md` | `2026-04-30-w1-build-and-first-run.md` | partial | Build, ASR, cleanup pipeline all verified end-to-end on TuxedoOS/KDE. Hotkey detection works (with `input` group; reboot required for it to take effect after `usermod`). **End-to-end text-insertion into KDE apps does NOT work** — uinput-helper fallback is gated off upstream. See W1 status-log entry 2026-05-01 and `pepper-x-install.md` "W1 execution findings" section. Apt-deps additions: `libssl-dev`, `libpipewire-0.3-dev` (also missing from upstream README). |
-| W6 | 1 | AT-SPI app whitelist additions for KDE | `pending` | — | — | — | yes | **Promoted from Phase 2 to Phase 1 on 2026-05-01.** Without this, no text appears in Kate/Konsole/etc. — the AT-SPI path is the only insertion path that actually works upstream right now. Add Kate/KWrite/Konsole/Kontact/Falkon to `friendly_insert_target_class_from_application_id` at `crates/pepperx-platform-gnome/src/atspi.rs:315-339`. Smallest code change that meets the daily-driver bar. |
+| W6 | 1 | AT-SPI app whitelist additions for KDE | `blocked` | `w6-atspi-kde-whitelist` (merged with no production change) | `2026-05-01-w6-atspi-kde-whitelist-design.md` | `2026-05-01-w6-atspi-kde-whitelist.md` | yes (when unblocked) | **Blocked 2026-05-01.** Pre-flight AT-SPI registry check (`busctl --address=$A11Y_BUS tree`) confirmed neither Kate nor Konsole register with AT-SPI on TuxedoOS — `libqt6gui6:amd64` 6.9.2 ships without the AT-SPI accessibility bridge plugin (no `accessible/` subdirectory under `/usr/lib/x86_64-linux-gnu/qt6/plugins/`); `apt-cache search atspi` finds no Qt-side bridge package in the repos. The whitelist patch alone cannot route Qt apps to the AT-SPI path that doesn't see them. **Unblock condition**: a way to install or build the Qt AT-SPI bridge plugin surfaces (KDE Neon backport / PPA / source build / vendor patch). Casual side research; not blocking the roadmap. Resume W6 from this branch when unblocked. |
 | W2 | 1 | KDE Global Shortcut → D-Bus | `pending` | — | — | — | no | Needs W1 + W6 (D-Bus service registers OK; insertion path needs to actually work for the shortcut to be useful). KDE-specific glue; not relevant to GNOME users. |
 | W4a | 2 | README dependency-list fix | `pending` | — | — | — | yes | Drop `cargo` (apt) and `libgtk4-layer-shell-dev`; add `clang`, `libclang-dev`, **`libssl-dev`, `libpipewire-0.3-dev`** (last two added 2026-05-01 from W1 findings); note Ubuntu 24.04. Doc-only. |
 | W4b | 2 | CI dependency-list fix | `pending` | — | — | — | yes | Add `clang`, `libclang-dev`, `libssl-dev`, `libpipewire-0.3-dev` to `.github/workflows/ci.yml`. Latent bug — passes today only because GitHub runners ship some of these. |
 | W4c | 2 | Pin Rust toolchain version | `pending` | — | — | — | yes | **New 2026-05-01 from W1 findings.** Add `rust-toolchain.toml` with a pinned stable version. Upstream's `dtolnay/rust-toolchain@stable` is a moving target; with rustc 1.95.0, upstream main fails both `cargo fmt --check` and `cargo clippy -- -D warnings`. Pinning fixes the drift. |
 | W5 | 2 | `dev-install-extension.sh` graceful skip on non-GNOME | `pending` | — | — | — | yes | Real check is at `scripts/dev-install-extension.sh:161-164` (not 90-93 as install.md originally claimed — fixed 2026-05-01). Exit 0 with friendly message. |
 | W7 | 2 | OCR portal-response fix + rewire | `pending` | — | — | — | yes | Two-part: (1) fix `screenshot.rs:95-161` to use the XDG portal response signal instead of scraping `~/Pictures/`, (2) rewire `crates/pepperx-platform-gnome/src/context.rs:50-68` so the public `capture_supporting_context()` actually calls `screenshot_window`. The two are not currently wired together. Highest code risk in Phase 2. |
-| W9 | 2 | Fix uinput-text fallback path (architectural) | `pending` | — | — | — | yes | **New 2026-05-01 from W1 findings.** Architecture in `app/src/transcription.rs:474-481` is *designed* to fall back to a uinput helper when AT-SPI fails, but `ensure_runtime_supported_backend()` at `crates/pepperx-platform-gnome/src/atspi.rs:858-877` rejects `UINPUT_TEXT_BACKEND_NAME` with "not implemented yet". The headline KDE-viability issue. W6 is a sufficient workaround for whitelisted KDE apps; W9 is the durable fix that makes pepper-x work for *any* focused app on any desktop. Bigger than W6; needs its own brainstorm. |
+| W9 | 1 | Fix uinput-text fallback path (architectural) | `pending` | — | — | — | yes | **Promoted from Phase 2 to Phase 1 on 2026-05-01** when W6 blocked on missing Qt AT-SPI bridge. Architecture in `app/src/transcription.rs:474-481` is *designed* to fall back to a uinput helper when AT-SPI fails, but `ensure_runtime_supported_backend()` at `crates/pepperx-platform-gnome/src/atspi.rs:858-877` rejects `UINPUT_TEXT_BACKEND_NAME` with "not implemented yet". W9 is now the durable fix that makes pepper-x work for any focused app on any desktop — bypasses the AT-SPI dependency W6 hit. Bigger than W6; needs its own brainstorm. |
 | W8 | 3 | Platform crate split: `pepperx-platform-linux` ↔ `pepperx-platform-gnome` | `conditional` | — | — | — | maybe | Triggered only by gate criteria below. |
 
 State legend: `pending` → `spec` → `planned` → `in-progress` → `done` (or `blocked` / `conditional`).
 
 ## Phase descriptions
 
-**Phase 1 — Get-it-running.** Daily-driver bar above. W1 verified the build/transcription pipeline end-to-end but exposed that **insertion is broken upstream** for non-whitelisted apps. W6 was promoted from Phase 2 to Phase 1 because it's the smallest change that unblocks daily-driver use. W2 (KDE shortcut) follows W6.
+**Phase 1 — Get-it-running.** Daily-driver bar above. W1 verified the build/transcription pipeline end-to-end but exposed that **insertion is broken upstream** for non-whitelisted apps. W6 was promoted to Phase 1 as the smallest unblocker — but pre-flight AT-SPI registry check on TuxedoOS revealed Kate/Konsole aren't visible to AT-SPI (Qt AT-SPI bridge not packaged), so **W6 is blocked** and **W9 is now Phase 1** as the durable fix that bypasses the AT-SPI dependency. W2 (KDE shortcut) follows W9. W6 stays in the workstream table as `blocked`; resume from its branch if/when the Qt AT-SPI bridge becomes available on TuxedoOS.
 
-**Phase 2 — Polish & fixes.** Independent fork-local improvements; most are also future upstream candidates. Revised order on 2026-05-01: W4a → W4b → W4c → W5 → W7 → W9 (W9 last because it's the deepest architectural change and may need its own multi-iteration cycle; W4c is new; W6 graduated to Phase 1).
+**Phase 2 — Polish & fixes.** Independent fork-local improvements; most are also future upstream candidates. Revised order on 2026-05-01 (post W6 block): W4a → W4b → W4c → W5 → W7 (W4c is new; W6 stays blocked in Phase 1; W9 graduated to Phase 1).
 
 **Phase 3 — Architectural (conditional).** Crate restructure work that is only worth doing if local maintenance friction makes the case. Not on the critical path.
 
@@ -58,6 +58,16 @@ W8 is `conditional`. Self-determined — promote it to `pending` (and brainstorm
 - **Architectural opportunity**: you're already touching the platform crate for another reason and can fold the split in cheaply.
 
 When triggered, **stop the current workstream**, surface the trigger to the user, and run `comprehensive-review:architect-review` before writing-plans (W8 is a structural change).
+
+## Refactor / enhancement ideas (deferred)
+
+Considered, rejected for now, might revisit later. Each entry has a trigger condition that would promote it to a real workstream.
+
+- **Whitelist data-table refactor** — replace the flat `match` in `crates/pepperx-platform-gnome/src/atspi.rs:315-339` with a `static` array of `(application_id, FriendlyInsertTargetClass)` pairs and look up by linear scan. Trigger: whitelist grows past ~50 entries OR an entry needs metadata beyond the category enum (e.g. per-app insertion strategy override). (Considered during W6 brainstorm; rejected as over-engineering at the current ~30-entry scale.)
+- **Whitelist split into GNOME/KDE sub-functions** — `..._for_gnome_app` and `..._for_kde_app` returning `Option<FriendlyInsertTargetClass>`, composed by the public function. Trigger: ≥10 KDE-specific entries accumulate, or the flat match becomes hard to scan in a single screen. (Considered during W6 brainstorm; rejected — pure indirection for the current 6 KDE entries.)
+- **Conditional helper stderr suppression** — make `fc04b8b`'s suppression toggleable via env var like `PEPPERX_HELPER_STDERR=1`. Trigger: another debugging session blocked on invisible helper logs (W1 was the first; second occurrence promotes this to a workstream — likely as W4d).
+
+Future workstreams that surface deferred ideas append entries here rather than burying them in commit messages or PR comments.
 
 ## Non-goals (explicit)
 
@@ -123,3 +133,6 @@ State transitions get a one-liner here. Git history is the authoritative log; th
     - **End-to-end text-insertion into KDE apps does NOT work.** Hotkey fires, audio captured, ASR transcribes correctly, cleanup runs, `[Pepper X] perf: ... insert=0.2s` is logged — but no text appears at the cursor. Root cause traced via Explore agent to `crates/pepperx-platform-gnome/src/atspi.rs:858-877`: `ensure_runtime_supported_backend()` rejects `UINPUT_TEXT_BACKEND_NAME` with "not implemented yet". The architectural fallback in `app/src/transcription.rs:474-481` exists but isn't reached because the AT-SPI whitelist doesn't include KDE apps and the uinput-text branch is gated. Helper subprocess `pepperx-uinput-helper` confirmed never spawned (`pgrep` returns empty; pstree shows only the cleanup helper child).
     - Two new workstreams added: **W4c** (pin Rust toolchain) and **W9** (fix uinput-text fallback architecturally). **W6 promoted from Phase 2 to Phase 1** because the AT-SPI whitelist is now the unblocker for daily-driver bar; without it (or W9), nothing types into KDE apps.
 - `2026-05-01` — current_workstream advanced to W6. State: `pending`. Awaits brainstorming.
+- `2026-05-01` — W6 spec written and reviewed (architect-review + general-purpose fact-check). Five must-fix corrections applied: `org.kde.kmail2` → `org.kde.kmail`; existing tests at `atspi.rs:2002/2014/2026` acknowledged (W6 extends rather than adds novel coverage); smoke gate uses `pgrep` + log discriminators (not just "text appears at cursor"); regression-assertion + executable-name pinning required. State: `pending` → `spec`.
+- `2026-05-01` — W6 plan written (`2026-05-01-w6-atspi-kde-whitelist.md`, 16 tasks, 909 lines) and execution begun. State: `spec` → `in-progress`. Branch: `w6-atspi-kde-whitelist`. New "Refactor / enhancement ideas (deferred)" section seeded with three entries from W6 brainstorm (whitelist data-table refactor; whitelist sub-function split; conditional helper stderr suppression).
+- `2026-05-01` — **W6 blocked at pre-flight (Task 3)**. Pre-flight AT-SPI registry check via `busctl --address=$(gdbus call ... org.a11y.Bus.GetAddress) tree org.a11y.atspi.Registry`: 15 apps registered (Electron apps, Sublime Text, KDE infrastructure like ksmserver/kaccess/gmenudbusmenuproxy) — but **Kate and Konsole are NOT in the registry**. Diagnosis: TuxedoOS's `libqt6gui6:amd64` 6.9.2 ships without the Qt AT-SPI accessibility bridge. `find / -name 'libqtatspi*'` empty; `/usr/lib/x86_64-linux-gnu/qt6/plugins/` has no `accessible/` subdirectory; `apt-cache search atspi` finds no Qt-side bridge package. `QT_ACCESSIBILITY=1` is set globally but has no plugin to load. W6's whitelist patch alone cannot make Kate/Konsole appear in AT-SPI — the bridge is the actual unblocker, and it's externally unavailable. State: `in-progress` → `blocked`. **W9 promoted to Phase 1** as the durable fix that bypasses AT-SPI entirely. Casual side research thread: monitor whether KDE Neon backports / a future TuxedoOS update / source build provides the missing bridge plugin — when it does, resume W6 from its existing branch. No production code was written in W6's worktree; only roadmap state-tracking commits.
