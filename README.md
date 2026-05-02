@@ -1,6 +1,8 @@
 # Pepper X
 
-GNOME-first local dictation for Linux. Hold a key combo, speak, release — your words appear in the focused app. Everything runs locally, no cloud.
+Local dictation for Linux on Wayland. Hold a key combo, speak, release — your words appear in the focused app. Everything runs locally, no cloud.
+
+Tested on GNOME 48+ (Ubuntu 25.04, Fedora 42+) and KDE Plasma 6 (TuxedoOS 24.04 / Ubuntu 24.04). Other Wayland desktops likely work via the universal uinput typing path.
 
 ## What it does
 
@@ -25,31 +27,49 @@ Transcription happens during recording (streaming). Cleanup uses a pre-warmed KV
 
 ### Prerequisites
 
-Ubuntu 25.04+ or Fedora 42+. GNOME 48+ on Wayland.
+Ubuntu 24.04+ (verified on TuxedoOS 24.04) or Fedora 42+. Wayland session on any modern Linux desktop. GNOME 48+ gets the polished experience (tray icon, AT-SPI caret-aware insertion); KDE Plasma 6 and other Wayland desktops use the universal uinput typing path.
 
 ```sh
-# Ubuntu
+# Ubuntu (24.04+, verified on TuxedoOS 24.04)
 sudo apt install \
-  build-essential cargo cmake \
+  build-essential cmake clang libclang-dev \
   libadwaita-1-dev libatspi2.0-dev libgirepository1.0-dev \
-  libglib2.0-dev libgtk-4-dev libgtk4-layer-shell-dev \
-  libvulkan-dev libxkbcommon-dev \
+  libglib2.0-dev libgtk-4-dev \
+  libpipewire-0.3-dev libssl-dev libvulkan-dev libxkbcommon-dev \
   pkg-config tesseract-ocr
 
-# Fedora
+# Fedora (list from upstream; not re-verified on this fork)
 sudo dnf install \
-  cargo cmake gcc gcc-c++ \
+  cmake gcc gcc-c++ clang clang-devel \
   at-spi2-core-devel glib2-devel gobject-introspection-devel \
   gtk4-devel libadwaita-devel libxkbcommon-devel vulkan-loader-devel \
+  openssl-devel pipewire-devel \
   pkgconf-pkg-config tesseract
+```
+
+Notes on the apt deps:
+- No `cargo` from apt — it's typically too old (apt's is 1.75 on noble). Install rustup instead (next step). `gtk4 0.11` requires Rust ≥ 1.92.
+- `clang` + `libclang-dev` are needed by `llama-cpp-sys-4`'s bindgen step.
+- `libssl-dev` is needed by `openssl-sys`, transitively pulled by `ort-sys`'s build script (downloads ONNX Runtime via `ureq` v3 → `native-tls`).
+- `libpipewire-0.3-dev` is needed by the `pipewire` crate used in `pepperx-audio`.
+- `libgtk4-layer-shell-dev` is intentionally NOT here — it isn't used by any crate.
+
+Install rustup with a stable toolchain:
+
+```sh
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+source $HOME/.cargo/env
+rustc --version  # should print 1.92.0 or higher
 ```
 
 Your user must be in the `input` group for hotkey capture and text injection:
 
 ```sh
 sudo usermod -aG input $USER
-# Log out and back in
+# Log out and back in (or reboot — see note below)
 ```
+
+**KDE / systemd-logind note:** on some KDE Plasma + systemd-logind setups, "Log Out" doesn't fully end the user session, so the new group membership doesn't reach any user process (terminals, shells, pepper-x itself). If `groups` in a new terminal doesn't show `input` after logging back in, **reboot** — that reliably refreshes credentials across all processes.
 
 A udev rule is needed for the virtual keyboard:
 
@@ -61,16 +81,43 @@ sudo udevadm control --reload-rules
 
 ### Build and install
 
+Network egress is required during `cargo build`: the `ort` crate downloads a prebuilt ONNX Runtime for the ASR engine.
+
 ```sh
 cargo build --release
 sudo install -m 755 target/release/pepper-x /usr/local/bin/
 sudo mkdir -p /usr/libexec/pepper-x
 sudo install -m 755 target/release/pepperx-uinput-helper /usr/libexec/pepper-x/
 sudo install -m 755 target/release/pepperx-cleanup-helper /usr/libexec/pepper-x/
-bash scripts/dev-install-extension.sh
 ```
 
-Log out and back in for the GNOME extension to load.
+**On GNOME** (optional; gives you the tray icon and floating status pill):
+
+```sh
+bash scripts/dev-install-extension.sh
+```
+Log out and back in for the extension to load.
+
+**On KDE Plasma or any non-GNOME Wayland desktop**: skip the GNOME extension (`scripts/dev-install-extension.sh` will exit with an error if `gnome-extensions` isn't on PATH). Create an autostart entry instead so the D-Bus service is available at session start:
+
+```sh
+mkdir -p ~/.config/autostart
+cat > ~/.config/autostart/pepper-x.desktop <<'EOF'
+[Desktop Entry]
+Type=Application
+Name=Pepper X
+Comment=Local dictation
+Exec=/usr/local/bin/pepper-x
+Icon=pepper-x
+StartupNotify=false
+NoDisplay=false
+X-GNOME-Autostart-enabled=true
+OnlyShowIn=KDE;GNOME;XFCE;
+EOF
+desktop-file-validate ~/.config/autostart/pepper-x.desktop
+```
+
+The `OnlyShowIn=KDE;GNOME;XFCE;` line is defensive — some desktops ignore autostart entries without an explicit show list.
 
 ### Download models
 
@@ -86,9 +133,20 @@ pepper-x
 ```
 
 That's it. The app:
-1. Starts the GNOME Shell extension (tray icon + status pill)
+1. On GNOME: registers with the `pepperx@obra` Shell extension (tray icon + status pill). On other desktops: just runs as a regular GTK4 app — the D-Bus service is still active and the dictation pipeline still works.
 2. Pre-warms the cleanup model in the background
 3. Listens for your trigger keys (Alt+Super by default)
+
+You can also trigger recording from a system shortcut by binding to the D-Bus service (works on any desktop with a session bus):
+
+```sh
+gdbus call --session \
+  --dest com.obra.PepperX.Service \
+  --object-path /com/obra/PepperX \
+  --method com.obra.PepperX.StartRecording shell-action
+```
+
+On KDE Plasma, this can be wired into a Global Shortcut via System Settings → Shortcuts → Custom Shortcuts.
 
 ### Settings
 
@@ -120,7 +178,16 @@ pepper-x --rerun-archived-run <run-id>
 - **`pepper-x`** — GTK4/libadwaita app, owns the recording pipeline, settings, history
 - **`pepperx-cleanup-helper`** — Persistent subprocess running llama.cpp (llama-cpp-4) for Qwen 3.5 inference, isolated to avoid ONNX Runtime symbol collision with the ASR engine
 - **`pepperx-uinput-helper`** — Persistent subprocess with XKB-aware virtual keyboard for text injection
-- **`pepperx@obra` GNOME extension** — Tray icon, floating status pill overlay, D-Bus bridge
+- **`pepperx@obra` GNOME extension** — Tray icon, floating status pill overlay, D-Bus bridge. **Optional, GNOME-only.** On other desktops the D-Bus service runs without the extension; the autostart `.desktop` ensures pepper-x is launched at session start.
+
+### Text-insertion strategy
+
+The insertion path tries backends in order, falling through on failure:
+
+1. **AT-SPI EditableText** (caret-aware insert) — fastest and cleanest path. Requires the focused app to register with AT-SPI. Works on GNOME apps and on Qt apps when the Qt AT-SPI accessibility bridge plugin is installed (Plasma 6 with `qt-at-spi` available, etc.).
+2. **AT-SPI key-string injection** — fallback for terminals with limited editable-text support.
+3. **Clipboard paste** — fallback when injection fails.
+4. **uinput keystroke synthesis** — universal fallback. Kernel-level virtual keyboard via the `pepperx-uinput-helper` subprocess; types into whatever has keyboard focus. No caret-position knowledge, no readback, but works everywhere — including KDE/Plasma + Wayland setups where the Qt AT-SPI bridge isn't installed.
 
 ### Key crates
 
