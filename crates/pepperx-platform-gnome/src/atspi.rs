@@ -861,7 +861,10 @@ fn ensure_runtime_supported_backend(
 ) -> Result<(), FriendlyInsertRunError> {
     if matches!(
         selection.backend_name,
-        FRIENDLY_INSERT_BACKEND_NAME | STRING_INJECTION_BACKEND_NAME | CLIPBOARD_PASTE_BACKEND_NAME
+        FRIENDLY_INSERT_BACKEND_NAME
+        | STRING_INJECTION_BACKEND_NAME
+        | CLIPBOARD_PASTE_BACKEND_NAME
+        | UINPUT_TEXT_BACKEND_NAME
     ) {
         return Ok(());
     }
@@ -965,11 +968,45 @@ impl<T> Drop for OwnedGObject<T> {
     }
 }
 
+fn wrap_atspi_failure_as_uinput_fallback(
+    error: FriendlyInsertRunError,
+) -> FriendlyInsertRunError {
+    // W9: when AT-SPI infrastructure fails (registry unreachable, snapshot
+    // can't be built, no usable backend selected), translate to a structured
+    // SelectedBackendFailure with backend_name = UINPUT_TEXT_BACKEND_NAME so
+    // the wrapper at app/src/transcription.rs:474-494 routes to the uinput
+    // helper. Without this, the wrapper bails because error.selected_backend()
+    // returns None for bare AT-SPI errors, and insertion silently fails on
+    // any system where AT-SPI doesn't see the focused app (e.g. KDE without
+    // the Qt AT-SPI bridge plugin).
+    //
+    // target_class must be non-empty because transcription.rs reads it via
+    // .to_string() onto the outcome's target_class field.
+    let synthetic_selection = FriendlyInsertSelection {
+        backend_name: UINPUT_TEXT_BACKEND_NAME,
+        target_application_id: String::new(),
+        target_class: friendly_insert_target_class_name(
+            FriendlyInsertTargetClass::Unsupported,
+        ),
+        attempted_backends: Vec::new(),
+    };
+    FriendlyInsertRunError::SelectedBackendFailure {
+        selection: synthetic_selection,
+        target_application_name: String::new(),
+        reason: Box::new(error),
+    }
+}
+
 fn focused_friendly_target(
     policy: &FriendlyInsertPolicy,
 ) -> Result<FocusedFriendlyTarget, FriendlyInsertRunError> {
-    let focused = unsafe { find_focused_accessible()? };
-    let snapshot = inspect_focused_target_from_accessible(&focused)?;
+    // W9: AT-SPI infrastructure failures are wrapped as a uinput-text
+    // SelectedBackendFailure so the wrapper in transcription.rs routes to
+    // the uinput helper. See wrap_atspi_failure_as_uinput_fallback above.
+    let focused = unsafe { find_focused_accessible() }
+        .map_err(wrap_atspi_failure_as_uinput_fallback)?;
+    let snapshot = inspect_focused_target_from_accessible(&focused)
+        .map_err(wrap_atspi_failure_as_uinput_fallback)?;
     let target = FriendlyFocusedTarget {
         application_id: snapshot.application_id.clone(),
         is_editable: snapshot.is_editable,
@@ -979,9 +1016,12 @@ fn focused_friendly_target(
     };
     let target_class = snapshot.target_class;
     let selection = select_friendly_insert_backend(&target, policy).map_err(|error| {
-        FriendlyInsertRunError::UnsupportedTarget(
+        // Wrap UnsupportedTarget into the uinput-fallback signal so the
+        // wrapper routes to the helper (rather than bubbling
+        // UnsupportedTarget and short-circuiting on selected_backend == None).
+        wrap_atspi_failure_as_uinput_fallback(FriendlyInsertRunError::UnsupportedTarget(
             error.with_target_application_name(snapshot.application_name.clone()),
-        )
+        ))
     })?;
     ensure_runtime_supported_backend(&selection, &snapshot.application_name)?;
     if matches!(
@@ -2066,6 +2106,80 @@ mod accessible_insert_runtime_helpers {
             "Firefox",
         )
         .expect("clipboard backend should be supported");
+    }
+
+    #[test]
+    fn ensure_runtime_supported_backend_accepts_all_four_backend_names() {
+        // Regression: when adding the fourth backend (uinput-text) to the
+        // gate's accepted set, the existing three must still be accepted.
+        for backend_name in [
+            FRIENDLY_INSERT_BACKEND_NAME,
+            STRING_INJECTION_BACKEND_NAME,
+            CLIPBOARD_PASTE_BACKEND_NAME,
+            UINPUT_TEXT_BACKEND_NAME,
+        ] {
+            ensure_runtime_supported_backend(
+                &FriendlyInsertSelection {
+                    backend_name,
+                    target_application_id: "test-app".into(),
+                    target_class: "text-editor",
+                    attempted_backends: vec![backend_name],
+                },
+                "Test App",
+            )
+            .unwrap_or_else(|err| panic!("backend {backend_name} should be supported: {err:?}"));
+        }
+    }
+
+    #[test]
+    fn ensure_runtime_supported_backend_rejects_unknown_backend() {
+        let result = ensure_runtime_supported_backend(
+            &FriendlyInsertSelection {
+                backend_name: "bogus-not-a-real-backend",
+                target_application_id: "test-app".into(),
+                target_class: "text-editor",
+                attempted_backends: vec!["bogus-not-a-real-backend"],
+            },
+            "Test App",
+        );
+        match result {
+            Err(FriendlyInsertRunError::SelectedBackendFailure { reason, .. }) => {
+                let reason_text = format!("{reason}");
+                assert!(
+                    reason_text.contains("not implemented yet"),
+                    "expected 'not implemented yet' in reason, got: {reason_text}"
+                );
+            }
+            other => panic!("expected SelectedBackendFailure, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn wrap_atspi_failure_as_uinput_fallback_produces_uinput_selected_backend_failure() {
+        let original = FriendlyInsertRunError::Access("simulated AT-SPI failure".into());
+        let wrapped = wrap_atspi_failure_as_uinput_fallback(original);
+        match wrapped {
+            FriendlyInsertRunError::SelectedBackendFailure {
+                selection,
+                target_application_name,
+                reason,
+            } => {
+                assert_eq!(selection.backend_name, UINPUT_TEXT_BACKEND_NAME);
+                assert!(
+                    !selection.target_class.is_empty(),
+                    "synthetic target_class must be non-empty (consumed by transcription.rs:493)"
+                );
+                assert_eq!(selection.target_application_id, "");
+                assert_eq!(selection.attempted_backends, Vec::<&'static str>::new());
+                assert_eq!(target_application_name, "");
+                let reason_text = format!("{reason}");
+                assert!(
+                    reason_text.contains("simulated AT-SPI failure"),
+                    "original error should be preserved as reason: got {reason_text}"
+                );
+            }
+            other => panic!("expected SelectedBackendFailure, got {other:?}"),
+        }
     }
 
     #[test]

@@ -2772,6 +2772,48 @@ mod app_shell {
     }
 
     #[test]
+    fn uinput_insert_routes_synthetic_atspi_failure_to_helper() {
+        // Mirrors the synthetic SelectedBackendFailure shape produced by
+        // wrap_atspi_failure_as_uinput_fallback in atspi.rs (W9 change 2):
+        // empty target_application_id, "unsupported" target_class, empty
+        // attempted_backends, empty target_application_name. The wrapper
+        // should still route to the helper based on backend_name alone.
+        let mut helper_requests = Vec::new();
+
+        let outcome = insert_with_uinput_fallback(
+            "synthetic fallback test",
+            |_| {
+                Err(FriendlyInsertRunError::SelectedBackendFailure {
+                    selection: pepperx_platform_gnome::atspi::FriendlyInsertSelection {
+                        backend_name: UINPUT_TEXT_BACKEND_NAME,
+                        target_application_id: String::new(),
+                        target_class: "unsupported",
+                        attempted_backends: Vec::new(),
+                    },
+                    target_application_name: String::new(),
+                    reason: Box::new(FriendlyInsertRunError::Access(
+                        "AT-SPI infrastructure failed".into(),
+                    )),
+                })
+            },
+            |request| {
+                helper_requests.push(request.text.clone());
+                Ok(())
+            },
+        )
+        .expect("uinput helper should route synthetic AT-SPI failure");
+
+        assert_eq!(helper_requests, vec!["synthetic fallback test".to_string()]);
+        assert_eq!(outcome.selection.backend_name, UINPUT_TEXT_BACKEND_NAME);
+        assert_eq!(outcome.target_application_name, "");
+        assert!(
+            !outcome.target_class.is_empty(),
+            "outcome.target_class must be non-empty even for synthetic case (read by downstream consumers)"
+        );
+        assert_eq!(outcome.target_class, "unsupported");
+    }
+
+    #[test]
     fn uinput_insert_request_serializes_text_only_payload() {
         let payload = serde_json::to_string(&UinputInsertRequest {
             text: "hello wine".into(),
