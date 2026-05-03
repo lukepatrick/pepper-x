@@ -173,6 +173,41 @@ pepper-x --transcribe-wav-and-cleanup recording.wav
 pepper-x --rerun-archived-run <run-id>
 ```
 
+### Triggering dictation from a KDE Global Shortcut
+
+Pepper X ships `.desktop` Actions for its main D-Bus methods. KDE's System Settings discovers them automatically once the desktop file is on the user's `XDG_DATA_DIRS` path. Per-user install (no sudo):
+
+```sh
+mkdir -p ~/.local/share/applications
+install -m 644 packaging/deb/pepper-x.desktop ~/.local/share/applications/
+kbuildsycoca6  # rebuild KDE service cache so the Actions appear immediately (or just relogin)
+```
+
+Prerequisites: `gdbus` (from `libglib2.0-bin` on Ubuntu — usually already present on KDE) and `kbuildsycoca6` (ships with `plasma-workspace`). Both are present on standard KDE Plasma 6 installs; if `gdbus` is missing, install with `sudo apt install libglib2.0-bin`.
+
+Then in **System Settings → Shortcuts → Custom Shortcuts**:
+
+1. Click **Add Custom Shortcut** → **Application**.
+2. Browse to **Pepper X**. KDE shows the four available Actions:
+   - Start dictation
+   - Stop dictation
+   - Open Pepper X settings
+   - Open Pepper X history
+3. Pick **Start dictation**, assign your preferred key combo (e.g. `Meta+V`), apply.
+
+Pressing the bound shortcut now triggers dictation via the D-Bus service, independently of pepper-x's own evdev hotkey capture (the two trigger paths coexist; you can use either or both).
+
+This trigger path requires:
+
+- pepper-x running (the autostart `.desktop` from the install steps above ensures it). If you press the shortcut while pepper-x isn't running, `gdbus call` fails silently — there is no D-Bus service-activation file shipped (yet).
+- D-Bus session bus available (any KDE Plasma session has this).
+
+It does NOT bypass the `input` group requirement for keystroke insertion — the uinput helper still writes to `/dev/uinput`. If your dictation triggers but no text appears, see the udev / `input` group setup above.
+
+**If the shortcut does nothing**: KDE Custom Shortcuts run their `Exec` without a controlling terminal, so any error from `gdbus call` is invisible. To debug, copy the `Exec=` line from `~/.local/share/applications/pepper-x.desktop` (look for the `[Desktop Action StartRecording]` block) and run it directly in a terminal. Common failures: pepper-x not running (`org.freedesktop.DBus.Error.ServiceUnknown`), wrong service name (typo), or a transient D-Bus issue.
+
+**System-wide vs per-user install conflict**: if you also install pepper-x via the deb package (which writes `/usr/share/applications/pepper-x.desktop` system-wide), the per-user copy at `~/.local/share/applications/pepper-x.desktop` shadows it. After a deb upgrade, the per-user copy is NOT updated — you'll see the old Actions list. Either remove the per-user copy after deb installs, or stay per-user and skip the deb route.
+
 ## Architecture
 
 - **`pepper-x`** — GTK4/libadwaita app, owns the recording pipeline, settings, history

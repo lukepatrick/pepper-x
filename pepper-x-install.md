@@ -124,13 +124,36 @@ After reading the source, **most of pepper-x is desktop-agnostic** and the build
 
 ### Optional KDE polish
 
-- [ ] Bind a KDE Global Shortcut to invoke the D-Bus service (alongside or instead of the modifier hotkey):
-  ```sh
-  gdbus call --session \
-    --dest com.obra.PepperX.Service \
-    --object-path /com/obra/PepperX \
-    --method com.obra.PepperX.StartRecording shell-action
-  ```
+Pepper X ships `.desktop` Actions for its main D-Bus methods. KDE's System Settings discovers them automatically once the desktop file is on the user's `XDG_DATA_DIRS` path. Per-user install (no sudo):
+
+```sh
+mkdir -p ~/.local/share/applications
+install -m 644 packaging/deb/pepper-x.desktop ~/.local/share/applications/
+kbuildsycoca6  # rebuild KDE service cache so the Actions appear immediately (or just relogin)
+```
+
+Prerequisites: `gdbus` (from `libglib2.0-bin` on Ubuntu — usually already present on KDE) and `kbuildsycoca6` (ships with `plasma-workspace`).
+
+Then in **System Settings → Shortcuts → Custom Shortcuts**:
+
+1. Click **Add Custom Shortcut** → **Application**.
+2. Browse to **Pepper X**. KDE shows the four available Actions: Start dictation, Stop dictation, Open Pepper X settings, Open Pepper X history.
+3. Pick **Start dictation**, assign your preferred key combo (e.g. `Meta+V`), apply.
+
+The KDE shortcut path is independent of pepper-x's own evdev hotkey capture; both trigger paths coexist. It does NOT bypass the `input` group requirement for keystroke insertion (the uinput helper still writes to `/dev/uinput`).
+
+**If the shortcut does nothing**: KDE Custom Shortcuts run their `Exec` without a controlling terminal, so any error from `gdbus call` is invisible. Copy the `Exec=` line from `~/.local/share/applications/pepper-x.desktop` and run it directly in a terminal to surface the error.
+
+**System-wide vs per-user install conflict**: if you also install via the deb package, the per-user copy shadows the system one and is NOT updated by `apt upgrade`. Pick one route or manually re-sync after upgrade.
+
+For ad-hoc invocation without the binding (one-off testing):
+
+```sh
+gdbus call --session --timeout 1 \
+  --dest com.obra.PepperX.Service \
+  --object-path /com/obra/PepperX \
+  --method com.obra.PepperX.StartRecording shell-action
+```
 
 ## Things to watch for during the build
 

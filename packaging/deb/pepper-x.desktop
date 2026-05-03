@@ -2,9 +2,26 @@
 Type=Application
 Version=1.0
 Name=Pepper X
-Comment=GNOME-first local Linux dictation shell
+Comment=Local Linux dictation shell with hold-to-record and KDE Global Shortcut support
 Exec=pepper-x
 Icon=com.obra.PepperX
 StartupWMClass=com.obra.PepperX
-Categories=Utility;GNOME;
+Categories=Utility;AudioVideo;
 Terminal=false
+Actions=StartRecording;StopRecording;ShowSettings;ShowHistory;
+
+[Desktop Action StartRecording]
+Name=Start dictation
+Exec=gdbus call --session --timeout 1 --dest com.obra.PepperX.Service --object-path /com/obra/PepperX --method com.obra.PepperX.StartRecording shell-action
+
+[Desktop Action StopRecording]
+Name=Stop dictation
+Exec=gdbus call --session --timeout 1 --dest com.obra.PepperX.Service --object-path /com/obra/PepperX --method com.obra.PepperX.StopRecording
+
+[Desktop Action ShowSettings]
+Name=Open Pepper X settings
+Exec=gdbus call --session --timeout 1 --dest com.obra.PepperX.Service --object-path /com/obra/PepperX --method com.obra.PepperX.ShowSettings
+
+[Desktop Action ShowHistory]
+Name=Open Pepper X history
+Exec=gdbus call --session --timeout 1 --dest com.obra.PepperX.Service --object-path /com/obra/PepperX --method com.obra.PepperX.ShowHistory
