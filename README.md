@@ -98,7 +98,7 @@ bash scripts/dev-install-extension.sh
 ```
 Log out and back in for the extension to load.
 
-**On KDE Plasma or any non-GNOME Wayland desktop**: skip the GNOME extension (`scripts/dev-install-extension.sh` will exit with an error if `gnome-extensions` isn't on PATH). Create an autostart entry instead so the D-Bus service is available at session start:
+**On KDE Plasma or any non-GNOME Wayland desktop**: the GNOME extension is unused (`scripts/dev-install-extension.sh` is safe to run — it skips cleanly with an informational message when `gnome-extensions` isn't on PATH). Create an autostart entry instead so the D-Bus service is available at session start:
 
 ```sh
 mkdir -p ~/.config/autostart

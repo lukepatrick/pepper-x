@@ -159,8 +159,9 @@ if [[ "${1:-}" == "--check" ]]; then
 fi
 
 if ! command -v gnome-extensions >/dev/null 2>&1; then
-    echo "gnome-extensions is required to install the Pepper X extension" >&2
-    exit 1
+    echo "GNOME Shell extension tooling not detected — skipping extension install." >&2
+    echo "On KDE, see README → 'Triggering dictation from a KDE Global Shortcut' for the .desktop-Action setup." >&2
+    exit 0
 fi
 
 mkdir -p "${install_root}"

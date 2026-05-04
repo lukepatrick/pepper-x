@@ -27,7 +27,7 @@ After reading the source, **most of pepper-x is desktop-agnostic** and the build
 | GTK4 + libadwaita app window | ✅ | Settings, history, models, diagnostics — all fine under Plasma. |
 | CLI (`--transcribe-wav`) | ✅ | Desktop-independent. |
 | D-Bus service `com.obra.PepperX` | ✅ | Standard session bus. Pokeable via `gdbus call …` from a KDE Global Shortcut. |
-| GNOME Shell extension (tray icon, status pill) | ❌ | Hard requirement on `gnome-shell` 48+. **Skip the install step entirely.** |
+| GNOME Shell extension (tray icon, status pill) | ❌ | Hard requirement on `gnome-shell` 48+. The install script auto-skips on non-GNOME after W5 — running it is a harmless no-op. |
 
 ### Project status notes (relevant context)
 
@@ -93,7 +93,7 @@ After reading the source, **most of pepper-x is desktop-agnostic** and the build
   sudo install -m 755 target/release/pepperx-uinput-helper /usr/libexec/pepper-x/
   sudo install -m 755 target/release/pepperx-cleanup-helper /usr/libexec/pepper-x/
   ```
-- [ ] **Skip** `bash scripts/dev-install-extension.sh` — it requires `gnome-extensions` and exits with an error on KDE. Confirmed via `scripts/dev-install-extension.sh:161-164` (the `command -v gnome-extensions` guard).
+- [ ] `bash scripts/dev-install-extension.sh` — on KDE the script auto-skips after W5 with an informational message; running it is harmless. The `:161-164` guard now exits 0 (was exit 1 before W5).
 
 ### First run
 
@@ -201,7 +201,7 @@ File:line references collected during research — the next session shouldn't ne
 
 - `gnome-extension/extension.js` — PanelMenu.Button (tray icon, lines 30-78), status overlay polling. Hard requirement on `gnome-shell`.
 - `gnome-extension/metadata.json` — `shell-version: ["48","49","50"]`.
-- `scripts/dev-install-extension.sh` lines 90-93 — exits with error if `gnome-extensions` not on PATH. Just don't run this script.
+- `scripts/dev-install-extension.sh:161-164` — auto-skips on non-GNOME after W5 (exits 0 with informational message). Safe to run on any desktop.
 
 ### Build-relevant
 
@@ -230,7 +230,7 @@ Independent of our local needs — these would help any non-25.04 / non-GNOME us
    - **Add `libssl-dev`** (required by `openssl-sys` pulled in transitively via `ort-sys` build deps → `ureq` → `native-tls`). Discovered during W1.
    - **Add `libpipewire-0.3-dev`** (required by `pipewire` crate used in `pepperx-audio`). Discovered during W1.
    - Note Ubuntu 24.04 also works (native lib floors are met).
-2. **`scripts/dev-install-extension.sh`**: detect non-GNOME early and print a friendly "skipping — no GNOME Shell detected, app will run without tray icon" message instead of an error. Real check is at `:161-164`, not `:90-93`.
+2. **`scripts/dev-install-extension.sh`**: ✅ done in W5 (2026-05-03). Script auto-skips on non-GNOME with an exit-0 informational message. Edited block at `:161-164`.
 3. **Platform crate naming**: `pepperx-platform-gnome` does the desktop-agnostic evdev + uinput work too. Splitting into `pepperx-platform-linux` (evdev, uinput, AT-SPI) + a thinner `pepperx-platform-gnome` (extension D-Bus glue, GNOME app whitelist) would clarify what's portable.
 4. **OCR context fix**: `capture_supporting_context()` is currently a no-op on all platforms (`crates/pepperx-platform-gnome/src/context.rs:50-68`). Wire up the portal response signal correctly — wins on GNOME *and* enables KDE. Note: `screenshot.rs` and the public `capture_supporting_context` aren't currently wired together; only a test-only helper calls `screenshot_window`. Fix requires editing both.
 5. **AT-SPI app whitelist**: extend `friendly_insert_target_class_from_application_id` (`crates/pepperx-platform-gnome/src/atspi.rs:315-339`) with KDE app IDs (Kate, KWrite, Konsole, Kontact, Falkon, Dolphin).
@@ -280,7 +280,7 @@ Goal: get pepper-x running on TuxedoOS 24.04 + KDE Plasma + Wayland.
 1. Confirm the fork path and `cd` into it.
 2. Walk Luke through the apt install (corrected list), rustup install, group add, udev rules. He'll run sudo commands.
 3. `cargo build --release` and triage any failures using the "Things to watch for" table above.
-4. Install binaries; **skip** the GNOME extension script.
+4. Install binaries; the GNOME extension script auto-skips on non-GNOME (W5).
 5. First-run smoke test: launch from terminal, download smaller Qwen 0.8B + Nemotron, test hold-to-record into a Konsole or Kate window.
 6. If the basic flow works: decide which of the "Recommended upstream fixes" to attempt as PRs vs keep as fork-only patches.
 
