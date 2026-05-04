@@ -1,3 +1,5 @@
+// hound is used by the test-only helpers below; gated with #[cfg(test)].
+#[cfg(test)]
 use hound::{SampleFormat, WavReader};
 use parakeet_rs::Nemotron;
 use std::path::{Path, PathBuf};
@@ -116,8 +118,7 @@ impl StreamingTranscriber {
         self.pending.extend_from_slice(samples);
 
         while self.pending.len() >= STREAMING_CHUNK_SAMPLES {
-            let chunk: [f32; STREAMING_CHUNK_SAMPLES] = self.pending
-                [..STREAMING_CHUNK_SAMPLES]
+            let chunk: [f32; STREAMING_CHUNK_SAMPLES] = self.pending[..STREAMING_CHUNK_SAMPLES]
                 .try_into()
                 .expect("slice length verified");
             self.model
@@ -197,6 +198,8 @@ fn required_model_file(
     }
 }
 
+// Test-only helper — not used in production builds.
+#[cfg(test)]
 fn load_wav(wav_path: &Path) -> Result<(PathBuf, i32, Vec<f32>), TranscriptionError> {
     let canonical_wav_path = std::fs::canonicalize(wav_path)
         .map_err(|_| TranscriptionError::MissingWavFile(wav_path.to_path_buf()))?;
@@ -215,6 +218,8 @@ fn load_wav(wav_path: &Path) -> Result<(PathBuf, i32, Vec<f32>), TranscriptionEr
     Ok((canonical_wav_path, sample_rate, samples))
 }
 
+// Test-only helper — not used in production builds.
+#[cfg(test)]
 fn read_wav_samples<R>(
     reader: &mut WavReader<R>,
     bits_per_sample: u16,
@@ -270,11 +275,8 @@ mod tests {
         fs::create_dir_all(&model_dir).unwrap();
         let wav_path = model_dir.join("existing.wav");
         fs::copy(fixture_path(), &wav_path).unwrap();
-        let request = TranscriptionRequest::new(
-            &wav_path,
-            &model_dir,
-            "nemotron-speech-streaming-en-0.6b",
-        );
+        let request =
+            TranscriptionRequest::new(&wav_path, &model_dir, "nemotron-speech-streaming-en-0.6b");
 
         let error = transcribe_wav(&request).unwrap_err();
 

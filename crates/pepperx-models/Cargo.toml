@@ -8,3 +8,6 @@ publish = false
 bzip2 = "0.6"
 tar = "0.4"
 ureq = "2.12"
+
+[lints]
+workspace = true

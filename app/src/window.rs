@@ -15,19 +15,24 @@ use pepperx_models::{ModelInventoryEntry, ModelKind};
 use crate::history_store::ArchivedRun;
 use crate::settings::AppSettings;
 
+// Test-only — used by window_page_routes_cover_all_shell_states test.
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum PageScaffoldKind {
     Form,
 }
 
+// Test-only — used by window_page_routes_cover_all_shell_states test.
 /// All content now lives inside the SettingsView sidebar. These variants
 /// exist for test-level introspection of the window's logical sections.
+#[cfg(test)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum WindowPage {
     Settings,
     History,
 }
 
+#[cfg(test)]
 impl WindowPage {
     fn container_kind(self) -> PageScaffoldKind {
         match self {
@@ -88,6 +93,8 @@ impl MainWindow {
         )
     }
 
+    // W4c-deadcode: only called from #[cfg(test)] code; clippy 1.95.0 dead-code lint
+    #[allow(dead_code)]
     pub fn new_with_history_and_settings(
         app: &adw::Application,
         history_runs: Vec<ArchivedRun>,
@@ -148,7 +155,9 @@ impl MainWindow {
         settings_surface_state: S,
         diagnostics_summary: D,
         rerun_archived_run: Option<Rc<dyn Fn(String, String) -> Option<TranscriptEntry>>>,
-        rerun_cleanup: Option<Rc<dyn Fn(String, String, Option<String>) -> Option<TranscriptEntry>>>,
+        rerun_cleanup: Option<
+            Rc<dyn Fn(String, String, Option<String>) -> Option<TranscriptEntry>>,
+        >,
         play_audio: Option<Rc<dyn Fn(PathBuf)>>,
     ) -> Self
     where
@@ -292,6 +301,8 @@ impl MainWindow {
     }
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 pub(crate) fn settings_summary_text(
     settings: &AppSettings,
     cache_root: &Path,
@@ -348,7 +359,10 @@ pub(crate) fn diagnostics_summary_text(
             "Modifier-only capture supported: {}",
             readiness.modifier_capture_supported
         ),
-        format!("Extension connected: {}", readiness.extension_connected.get()),
+        format!(
+            "Extension connected: {}",
+            readiness.extension_connected.get()
+        ),
         format!("Service version: {}", readiness.service_version),
     ];
 
@@ -396,6 +410,8 @@ pub(crate) fn diagnostics_summary_text(
     lines.join("\n")
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 pub(crate) fn history_summary_text(runs: &[ArchivedRun]) -> String {
     if let Some(latest) = runs.first() {
         let entry = &latest.entry;
@@ -572,9 +588,8 @@ mod app_shell {
         assert!(summary.contains("Default cleanup model: qwen3.5-2b-q4_k_m.gguf"));
         assert!(summary.contains("Cleanup prompt profile: ordinary-dictation"));
         assert!(summary.contains("ASR model nemo-parakeet-tdt-0.6b-v3-int8: ready"));
-        assert!(summary.contains(
-            "Cleanup model qwen3.5-2b-q4_k_m.gguf: missing qwen3.5-2b-q4_k_m.gguf"
-        ));
+        assert!(summary
+            .contains("Cleanup model qwen3.5-2b-q4_k_m.gguf: missing qwen3.5-2b-q4_k_m.gguf"));
     }
 
     #[test]
@@ -765,10 +780,7 @@ mod app_shell {
             WindowPage::Settings.container_kind(),
             PageScaffoldKind::Form
         );
-        assert_eq!(
-            WindowPage::History.container_kind(),
-            PageScaffoldKind::Form
-        );
+        assert_eq!(WindowPage::History.container_kind(), PageScaffoldKind::Form);
     }
 
     #[test]
@@ -786,7 +798,9 @@ mod app_shell {
             toggle_trigger_keys: "56,57,100,125,126".into(),
             ignore_other_speakers: false,
             enable_post_paste_learning: true,
-            correction_memory_text: Some("Preferred transcript examples:\n- raw: hello\n  preferred: Hello".into()),
+            correction_memory_text: Some(
+                "Preferred transcript examples:\n- raw: hello\n  preferred: Hello".into(),
+            ),
             preferred_transcriptions_text: "Hello".into(),
             replacement_rules_text: String::new(),
             feedback_message: Some("Saved settings".into()),

@@ -261,13 +261,11 @@ fn transcribe_recorded_wav_to_log_with_live_status(
     // recording artifact pointing at it so the transcription step uses the
     // filtered audio.
     let effective_artifact = match speaker_filter_result.as_ref() {
-        Some(result) if result.filtering_applied => {
-            pepperx_audio::RecordingArtifact::new(
-                &result.filtered_wav_path,
-                request.recording_artifact().selected_microphone().cloned(),
-                result.filtered_duration,
-            )
-        }
+        Some(result) if result.filtering_applied => pepperx_audio::RecordingArtifact::new(
+            &result.filtered_wav_path,
+            request.recording_artifact().selected_microphone().cloned(),
+            result.filtered_duration,
+        ),
         _ => request.recording_artifact().clone(),
     };
     // If the recording produced a streaming transcript, extract it before
@@ -286,10 +284,7 @@ fn transcribe_recorded_wav_to_log_with_live_status(
             request.trigger_source(),
             |wav_path| {
                 let t = Instant::now();
-                let result = streaming_transcript_or_batch(
-                    streaming_transcript.as_ref(),
-                    wav_path,
-                );
+                let result = streaming_transcript_or_batch(streaming_transcript.as_ref(), wav_path);
                 transcribe_elapsed.set(t.elapsed());
                 result
             },
@@ -336,10 +331,7 @@ fn transcribe_recorded_wav_to_log_with_live_status(
             request.trigger_source(),
             |wav_path| {
                 let t = Instant::now();
-                let result = streaming_transcript_or_batch(
-                    streaming_transcript.as_ref(),
-                    wav_path,
-                );
+                let result = streaming_transcript_or_batch(streaming_transcript.as_ref(), wav_path);
                 transcribe_elapsed.set(t.elapsed());
                 result
             },
@@ -734,6 +726,8 @@ pub fn experiment_rerun_archived_run(
     )
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 pub fn rerun_archived_cleanup_to_log(
     request: ArchivedCleanupRerunRequest,
 ) -> Result<TranscriptEntry, TranscriptionRunError> {
@@ -779,6 +773,8 @@ pub fn experiment_rerun_archived_cleanup(
     })
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn rerun_archived_cleanup_with<C>(
     request: ArchivedCleanupRerunRequest,
     cleanup: C,
@@ -1163,6 +1159,8 @@ where
     archive_transcript_entry_with_request(entry, runtime_metadata, None, None, None)
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn archive_transcription_result_with_cleanup_and_friendly_insert<C, I>(
     result: TranscriptionResult,
     prompt_profile: Option<String>,
@@ -1449,6 +1447,8 @@ fn describe_asr_error(error: &TranscriptionError) -> String {
     }
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn configured_model_dir() -> Result<PathBuf, TranscriptionRunError> {
     match std::env::var_os("PEPPERX_PARAKEET_MODEL_DIR") {
         Some(value) if !value.is_empty() => return Ok(PathBuf::from(value)),
@@ -1505,6 +1505,8 @@ fn configured_requested_cleanup_model_path_for_model_id_with(
     resolve_cleanup_model_path_for_model_id_with(model_id, cache_root, false)
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn configured_model_dir_with(
     settings: &AppSettings,
     cache_root: &Path,
@@ -1512,6 +1514,8 @@ fn configured_model_dir_with(
     configured_model_dir_for_model_id_with(&settings.preferred_asr_model, cache_root)
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn configured_model_dir_for_model_id_with(
     model_id: &str,
     cache_root: &Path,
@@ -1554,6 +1558,8 @@ fn configured_cleanup_model_path_with(
     configured_cleanup_model_path_for_model_id(&settings.preferred_cleanup_model, cache_root)
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn configured_cleanup_model_path_for_model_id_with(
     model_id: &str,
     cache_root: &Path,
@@ -1927,8 +1933,7 @@ mod app_shell {
         std::fs::create_dir_all(&cache_root).unwrap();
         std::fs::write(&override_path, b"override-model").unwrap();
         std::env::set_var("PEPPERX_CLEANUP_MODEL_PATH", &override_path);
-        let expected_path =
-            materialize_ready_model(&cache_root, "qwen3.5-0.8b-q4_k_m.gguf");
+        let expected_path = materialize_ready_model(&cache_root, "qwen3.5-0.8b-q4_k_m.gguf");
 
         let configured_path = configured_requested_cleanup_model_path_for_model_id_with(
             "qwen3.5-0.8b-q4_k_m.gguf",
@@ -1957,11 +1962,9 @@ mod app_shell {
                 .as_nanos()
         ));
 
-        let error = configured_requested_model_dir_for_model_id_with(
-            "qwen3.5-2b-q4_k_m.gguf",
-            &cache_root,
-        )
-        .unwrap_err();
+        let error =
+            configured_requested_model_dir_for_model_id_with("qwen3.5-2b-q4_k_m.gguf", &cache_root)
+                .unwrap_err();
 
         assert!(matches!(
             error,
@@ -4386,7 +4389,10 @@ mod app_shell {
             cleanup_request.supporting_context_text.as_deref(),
             Some("line before\nline after")
         );
-        assert_eq!(cleanup_request.ocr_text.as_deref(), Some("ocr fallback text"));
+        assert_eq!(
+            cleanup_request.ocr_text.as_deref(),
+            Some("ocr fallback text")
+        );
         assert_eq!(entry.transcript_text, "hello from pepper x");
         assert_eq!(entry.display_text(), "Hello from Pepper X!");
         assert_eq!(

@@ -66,17 +66,20 @@ impl OverlayPresentation {
     }
 }
 
-const STATUS_CSS_CLASSES: &[&str] = &[
-    "status-ready",
-    "status-recording",
-    "status-working",
-    "status-success",
-    "status-error",
-];
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+// const STATUS_CSS_CLASSES: &[&str] = &[
+//     "status-ready",
+//     "status-recording",
+//     "status-working",
+//     "status-success",
+//     "status-error",
+// ];
 
 #[derive(Clone)]
 pub struct OverlayView {
     root: gtk::Revealer,
+    // W4c-deadcode: field never read; clippy 1.95.0 dead-code lint
+    #[allow(dead_code)]
     frame: gtk::Box,
     status_dot: gtk::Label,
     spinner: gtk::Spinner,
@@ -111,9 +114,7 @@ impl OverlayView {
 
         let copy_box = gtk::Box::new(gtk::Orientation::Vertical, 4);
         copy_box.set_hexpand(true);
-        let headline = gtk::Label::builder()
-            .xalign(0.0)
-            .build();
+        let headline = gtk::Label::builder().xalign(0.0).build();
         headline.add_css_class("title-3");
         let detail = gtk::Label::builder().xalign(0.0).wrap(true).build();
         detail.add_css_class("caption");
@@ -150,9 +151,9 @@ impl OverlayView {
 
         // Colored status dot: red for recording, green for success, yellow for error
         let dot_color = match status {
-            LiveStatus::Recording => Some("#e01b24"),       // red
+            LiveStatus::Recording => Some("#e01b24"),            // red
             LiveStatus::ClipboardFallback(_) => Some("#2ec27e"), // green
-            LiveStatus::Error(_) => Some("#e5a50a"),         // yellow
+            LiveStatus::Error(_) => Some("#e5a50a"),             // yellow
             _ => None,
         };
         if let Some(color) = dot_color {

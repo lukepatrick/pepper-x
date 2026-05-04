@@ -110,6 +110,8 @@ impl AppModel {
         self.setup_state.borrow().clone()
     }
 
+    // Test-only — referenced by setup title/description tests in app.rs.
+    #[cfg(test)]
     pub fn setup_title(&self) -> &'static str {
         match self.setup_state() {
             SetupState::SetupRequired => "Finish Pepper X setup",
@@ -118,6 +120,8 @@ impl AppModel {
         }
     }
 
+    // Test-only — referenced by setup title/description tests in app.rs.
+    #[cfg(test)]
     pub fn setup_description(&self) -> String {
         match self.setup_state() {
             SetupState::SetupRequired => {
@@ -189,6 +193,8 @@ impl RuntimeReadinessSummary {
 }
 
 impl SetupChecklist {
+    // Test-only — used by onboarding wizard tests and app setup tests.
+    #[cfg(test)]
     pub fn new(trigger_ready: bool) -> Self {
         Self {
             trigger_ready,
@@ -219,6 +225,8 @@ impl SetupChecklist {
 }
 
 impl ModelBootstrapSummary {
+    // Test-only — called from ready_model_bootstrap() helper in app.rs tests.
+    #[cfg(test)]
     pub fn ready() -> Self {
         Self {
             asr_ready: true,

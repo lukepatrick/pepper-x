@@ -13,3 +13,8 @@ members = [
     "crates/pepperx-uinput-helper",
 ]
 resolver = "2"
+
+[workspace.lints.clippy]
+result_large_err = "allow"
+type_complexity = "allow"
+too_many_arguments = "allow"

@@ -146,6 +146,8 @@ pub struct DiarizationSegment {
 }
 
 impl DiarizationSegment {
+    // Test-only — used by diarization-related tests in transcript_log.rs.
+    #[cfg(test)]
     pub fn new(speaker: impl Into<String>, start_secs: f64, end_secs: f64) -> Self {
         Self {
             speaker: speaker.into(),
@@ -733,11 +735,8 @@ mod tests {
             Duration::from_millis(10),
         );
         entry.diarization = Some(
-            DiarizationSummary::new(
-                vec![DiarizationSegment::new("Speaker 0", 0.0, 1.0)],
-                true,
-            )
-            .with_fallback_reason("recording too short for diarization"),
+            DiarizationSummary::new(vec![DiarizationSegment::new("Speaker 0", 0.0, 1.0)], true)
+                .with_fallback_reason("recording too short for diarization"),
         );
 
         log.append(&entry).expect("append entry");

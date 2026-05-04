@@ -212,9 +212,7 @@ where
     match model.download_artifact.kind {
         DownloadArtifactKind::File => bootstrap_file(model, cache_root, &mut fetch)?,
         DownloadArtifactKind::TarBz2 => bootstrap_tar_bz2(model, cache_root, &mut fetch)?,
-        DownloadArtifactKind::MultiFile => {
-            bootstrap_multi_file(model, cache_root, &mut fetch)?
-        }
+        DownloadArtifactKind::MultiFile => bootstrap_multi_file(model, cache_root, &mut fetch)?,
     }
 
     let readiness = model_readiness(model, cache_root);
@@ -479,7 +477,7 @@ fn download_to_path(url: &str, target_path: &Path) -> Result<(), io::Error> {
 
     let response = ureq::get(url)
         .call()
-        .map_err(|error| io::Error::new(io::ErrorKind::Other, error.to_string()))?;
+        .map_err(|error| io::Error::other(error.to_string()))?;
     let mut reader = response.into_reader();
     let mut file = File::create(target_path)?;
     io::copy(&mut reader, &mut file)?;
@@ -739,10 +737,7 @@ mod tests {
     }
 
     fn write_tdt_asr_bundle(target_path: &std::path::Path) {
-        write_tdt_asr_bundle_with_prefix(
-            target_path,
-            "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8",
-        );
+        write_tdt_asr_bundle_with_prefix(target_path, "sherpa-onnx-nemo-parakeet-tdt-0.6b-v3-int8");
     }
 
     fn write_tdt_asr_bundle_with_prefix(target_path: &std::path::Path, prefix: &str) {

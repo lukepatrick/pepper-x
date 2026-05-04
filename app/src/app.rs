@@ -18,12 +18,14 @@ use crate::onboarding::show_onboarding_window;
 use crate::session_runtime::LiveRuntimeHandle;
 use crate::settings::{AppSettings, AppSetupState};
 use crate::startup_policy::startup_launch_policy;
-use crate::transcript_log::{state_root, TranscriptEntry};
-use crate::transcription::{
-    experiment_rerun_archived_cleanup, experiment_rerun_archived_run,
-    ArchivedCleanupRerunRequest, ArchivedRunRerunRequest,
-};
 use crate::status_pill::StatusPill;
+use crate::transcript_log::state_root;
+#[cfg(test)]
+use crate::transcript_log::TranscriptEntry;
+use crate::transcription::{
+    experiment_rerun_archived_cleanup, experiment_rerun_archived_run, ArchivedCleanupRerunRequest,
+    ArchivedRunRerunRequest,
+};
 use crate::window::{diagnostics_summary_text, MainWindow};
 
 pub const APPLICATION_ID: &str = "com.obra.PepperX";
@@ -51,12 +53,8 @@ pub fn run() {
     let live_status = SharedLiveStatus::new();
     let live_runtime = build_live_runtime(&settings, live_status.clone());
     let live_runtime_for_pump = live_runtime.clone();
-    let service_handle = ServiceHandle::start(
-        command_sender,
-        live_runtime,
-        live_status.clone(),
-    )
-    .expect("failed to start GNOME IPC service");
+    let service_handle = ServiceHandle::start(command_sender, live_runtime, live_status.clone())
+        .expect("failed to start GNOME IPC service");
     let service = service_handle.service();
 
     // Clean up stale uinput helper socket from a previous run.
@@ -106,9 +104,7 @@ pub fn run() {
             })
             .ok();
     }
-    let shared_trigger_config = modifier_capture
-        .as_ref()
-        .map(|h| h.shared_config().clone());
+    let shared_trigger_config = modifier_capture.as_ref().map(|h| h.shared_config().clone());
     let app_model = Rc::new(AppModel::for_startup(
         &setup_state,
         &settings,
@@ -192,9 +188,7 @@ pub fn run() {
                         );
                     }
                     Err(_) => {
-                        let result = std::process::Command::new("paplay")
-                            .arg(&wav_path)
-                            .status();
+                        let result = std::process::Command::new("paplay").arg(&wav_path).status();
                         match result {
                             Ok(status) if status.success() => {}
                             Ok(status) => {
@@ -298,6 +292,8 @@ pub fn load_history_runs() -> io::Result<Vec<ArchivedRun>> {
     HistoryStore::open(state_root())?.recent_runs()
 }
 
+// Test-only — called from history integration tests in app.rs.
+#[cfg(test)]
 pub fn load_history_entries() -> io::Result<Vec<TranscriptEntry>> {
     HistoryStore::open(state_root())?.recent_entries()
 }

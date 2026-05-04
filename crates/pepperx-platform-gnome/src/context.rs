@@ -4,14 +4,17 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use zbus::blocking::Connection;
+// W4c-deadcode: unused import; clippy 1.95.0 unused-imports lint
+// use zbus::blocking::Connection;
 
 use crate::atspi::{
     inspect_focused_target, FocusedTargetSnapshot, FriendlyInsertRunError, ProbeStatus,
     RecoveryAction, RecoveryProbe,
 };
 use crate::screenshot::{
-    introspect_interface_xml, screenshot_window, validate_interface_xml, ScreenshotContractError,
+    // W4c-deadcode: introspect_interface_xml, screenshot_window unused; clippy 1.95.0 unused-imports lint
+    validate_interface_xml,
+    ScreenshotContractError,
     ScreenshotWindowError,
 };
 

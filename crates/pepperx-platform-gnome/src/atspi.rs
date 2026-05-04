@@ -1,18 +1,26 @@
 use crate::service::PepperXService;
-use gtk::prelude::*;
+// W4c-deadcode: unused after dead-code comment-outs; clippy 1.95.0 unused-imports lint
+// use gtk::prelude::*;
 use std::ffi::{c_char, c_void, CStr, CString};
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use std::time::Duration;
+// W4c-deadcode: unused after dead-code comment-outs; clippy 1.95.0 unused-imports lint
+// use std::time::Duration;
 
+// W4c: duplicate_mod is structurally deliberate — context.rs is re-mounted
+// here as a child of atspi for `crate::atspi::context::*` paths. Re-routing
+// through `crate::context` would be non-trivial and out of W4c scope.
+#[allow(clippy::duplicate_mod)]
 #[path = "context.rs"]
 pub(crate) mod context;
 
 const CONTROL_LEFT_KEYSYM: u32 = 65_507;
 const CONTROL_RIGHT_KEYSYM: u32 = 65_508;
-const V_KEYSYM: u32 = b'v' as u32;
-const CLIPBOARD_RESTORE_DELAY: Duration = Duration::from_millis(75);
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+// const V_KEYSYM: u32 = b'v' as u32;
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+// const CLIPBOARD_RESTORE_DELAY: Duration = Duration::from_millis(75);
 
 pub const FRIENDLY_INSERT_BACKEND_NAME: &str = "atspi-editable-text";
 pub const STRING_INJECTION_BACKEND_NAME: &str = "atspi-key-string";
@@ -74,7 +82,8 @@ pub fn modifier_capture_probe(modifier_capture_supported: bool) -> RecoveryProbe
 enum FriendlyInsertBackend {
     EditableText,
     StringInjection,
-    ClipboardPaste,
+    // W4c-deadcode: variant never constructed; clippy 1.95.0 dead-code lint
+    // ClipboardPaste,
     UinputText,
 }
 
@@ -83,7 +92,8 @@ impl FriendlyInsertBackend {
         match self {
             Self::EditableText => FRIENDLY_INSERT_BACKEND_NAME,
             Self::StringInjection => STRING_INJECTION_BACKEND_NAME,
-            Self::ClipboardPaste => CLIPBOARD_PASTE_BACKEND_NAME,
+            // W4c-deadcode: ClipboardPaste variant commented out above
+            // Self::ClipboardPaste => CLIPBOARD_PASTE_BACKEND_NAME,
             Self::UinputText => UINPUT_TEXT_BACKEND_NAME,
         }
     }
@@ -113,14 +123,15 @@ impl FriendlyInsertPolicy {
         }
     }
 
-    fn expected_application_id(self) -> &'static str {
-        match self.expectation {
-            FriendlyInsertExpectation::ExactApplication(target_application_id) => {
-                target_application_id
-            }
-            FriendlyInsertExpectation::LiveSupported => "supported-live-target",
-        }
-    }
+    // W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+    // fn expected_application_id(self) -> &'static str {
+    //     match self.expectation {
+    //         FriendlyInsertExpectation::ExactApplication(target_application_id) => {
+    //             target_application_id
+    //         }
+    //         FriendlyInsertExpectation::LiveSupported => "supported-live-target",
+    //     }
+    // }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -718,6 +729,8 @@ pub fn insert_text_into_friendly_target(
     }
 }
 
+// Test-only — called from clipboard_insert_restores_previous_clipboard_text_after_paste test.
+#[cfg(test)]
 fn run_clipboard_paste_with_adapter<A: ClipboardPasteAdapter>(
     text: &str,
     selection: &FriendlyInsertSelection,
@@ -731,9 +744,7 @@ fn run_clipboard_paste_with_adapter<A: ClipboardPasteAdapter>(
     let paste_result = adapter.paste();
     let restore_result = adapter.restore(snapshot);
 
-    if let Err(error) = restore_result {
-        return Err(error);
-    }
+    restore_result?;
 
     paste_result?;
 
@@ -747,20 +758,21 @@ fn run_clipboard_paste_with_adapter<A: ClipboardPasteAdapter>(
     })
 }
 
-fn clipboard_paste_adapter() -> Result<GdkClipboardPasteAdapter, FriendlyInsertRunError> {
-    // GTK must be initialized on the main thread. If it's already initialized
-    // (by the application), we can safely access the default display from any
-    // thread. If not, we cannot initialize it here from a worker thread.
-    let display = gtk::gdk::Display::default().ok_or_else(|| {
-        FriendlyInsertRunError::Access(
-            "GTK clipboard mediation requires a live default display".into(),
-        )
-    })?;
-
-    Ok(GdkClipboardPasteAdapter {
-        clipboard: display.clipboard(),
-    })
-}
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+// fn clipboard_paste_adapter() -> Result<GdkClipboardPasteAdapter, FriendlyInsertRunError> {
+//     // GTK must be initialized on the main thread. If it's already initialized
+//     // (by the application), we can safely access the default display from any
+//     // thread. If not, we cannot initialize it here from a worker thread.
+//     let display = gtk::gdk::Display::default().ok_or_else(|| {
+//         FriendlyInsertRunError::Access(
+//             "GTK clipboard mediation requires a live default display".into(),
+//         )
+//     })?;
+//
+//     Ok(GdkClipboardPasteAdapter {
+//         clipboard: display.clipboard(),
+//     })
+// }
 
 fn control_bit(keysym: u32) -> Option<u8> {
     match keysym {
@@ -808,10 +820,11 @@ fn backend_matches_target(
         FriendlyInsertBackend::StringInjection => {
             target_class == FriendlyInsertTargetClass::Terminal && target.supports_text
         }
-        FriendlyInsertBackend::ClipboardPaste => {
-            // Clipboard paste is no longer used; prefer UinputText instead.
-            false
-        }
+        // W4c-deadcode: ClipboardPaste variant commented out above
+        // FriendlyInsertBackend::ClipboardPaste => {
+        //     // Clipboard paste is no longer used; prefer UinputText instead.
+        //     false
+        // }
         FriendlyInsertBackend::UinputText => true,
     }
 }
@@ -862,9 +875,9 @@ fn ensure_runtime_supported_backend(
     if matches!(
         selection.backend_name,
         FRIENDLY_INSERT_BACKEND_NAME
-        | STRING_INJECTION_BACKEND_NAME
-        | CLIPBOARD_PASTE_BACKEND_NAME
-        | UINPUT_TEXT_BACKEND_NAME
+            | STRING_INJECTION_BACKEND_NAME
+            | CLIPBOARD_PASTE_BACKEND_NAME
+            | UINPUT_TEXT_BACKEND_NAME
     ) {
         return Ok(());
     }
@@ -889,6 +902,8 @@ struct FocusedFriendlyTarget {
     caret_offset: Option<i32>,
 }
 
+// Test-only — used by FakeClipboardPasteAdapter and run_clipboard_paste_with_adapter tests.
+#[cfg(test)]
 trait ClipboardPasteAdapter {
     type Snapshot;
 
@@ -897,45 +912,46 @@ trait ClipboardPasteAdapter {
     fn paste(&mut self) -> Result<(), FriendlyInsertRunError>;
     fn restore(&mut self, snapshot: Option<Self::Snapshot>) -> Result<(), FriendlyInsertRunError>;
 }
-
-struct GdkClipboardPasteAdapter {
-    clipboard: gtk::gdk::Clipboard,
-}
-
-impl ClipboardPasteAdapter for GdkClipboardPasteAdapter {
-    type Snapshot = gtk::gdk::ContentProvider;
-
-    fn snapshot(&mut self) -> Result<Option<Self::Snapshot>, FriendlyInsertRunError> {
-        Ok(self.clipboard.content())
-    }
-
-    fn set_text(&mut self, text: &str) -> Result<(), FriendlyInsertRunError> {
-        self.clipboard.set_text(text);
-        Ok(())
-    }
-
-    fn paste(&mut self) -> Result<(), FriendlyInsertRunError> {
-        unsafe {
-            generate_keyboard_key_press(CONTROL_LEFT_KEYSYM.into())?;
-            generate_keyboard_key_press_release(V_KEYSYM.into())?;
-            generate_keyboard_key_release(CONTROL_LEFT_KEYSYM.into())?;
-        }
-
-        // Let the focused target request clipboard contents before restoring ownership.
-        std::thread::sleep(CLIPBOARD_RESTORE_DELAY);
-        Ok(())
-    }
-
-    fn restore(&mut self, snapshot: Option<Self::Snapshot>) -> Result<(), FriendlyInsertRunError> {
-        self.clipboard
-            .set_content(snapshot.as_ref())
-            .map_err(|error| {
-                FriendlyInsertRunError::Access(format!(
-                    "failed to restore clipboard contents: {error}"
-                ))
-            })
-    }
-}
+//
+// W4c-deadcode: struct never constructed; clippy 1.95.0 dead-code lint
+// struct GdkClipboardPasteAdapter {
+//     clipboard: gtk::gdk::Clipboard,
+// }
+//
+// impl ClipboardPasteAdapter for GdkClipboardPasteAdapter {
+//     type Snapshot = gtk::gdk::ContentProvider;
+//
+//     fn snapshot(&mut self) -> Result<Option<Self::Snapshot>, FriendlyInsertRunError> {
+//         Ok(self.clipboard.content())
+//     }
+//
+//     fn set_text(&mut self, text: &str) -> Result<(), FriendlyInsertRunError> {
+//         self.clipboard.set_text(text);
+//         Ok(())
+//     }
+//
+//     fn paste(&mut self) -> Result<(), FriendlyInsertRunError> {
+//         unsafe {
+//             generate_keyboard_key_press(CONTROL_LEFT_KEYSYM.into())?;
+//             generate_keyboard_key_press_release(V_KEYSYM.into())?;
+//             generate_keyboard_key_release(CONTROL_LEFT_KEYSYM.into())?;
+//         }
+//
+//         // Let the focused target request clipboard contents before restoring ownership.
+//         std::thread::sleep(CLIPBOARD_RESTORE_DELAY);
+//         Ok(())
+//     }
+//
+//     fn restore(&mut self, snapshot: Option<Self::Snapshot>) -> Result<(), FriendlyInsertRunError> {
+//         self.clipboard
+//             .set_content(snapshot.as_ref())
+//             .map_err(|error| {
+//                 FriendlyInsertRunError::Access(format!(
+//                     "failed to restore clipboard contents: {error}"
+//                 ))
+//             })
+//     }
+// }
 
 struct OwnedGObject<T> {
     ptr: NonNull<T>,
@@ -968,9 +984,7 @@ impl<T> Drop for OwnedGObject<T> {
     }
 }
 
-fn wrap_atspi_failure_as_uinput_fallback(
-    error: FriendlyInsertRunError,
-) -> FriendlyInsertRunError {
+fn wrap_atspi_failure_as_uinput_fallback(error: FriendlyInsertRunError) -> FriendlyInsertRunError {
     // W9: when AT-SPI infrastructure fails (registry unreachable, snapshot
     // can't be built, no usable backend selected), translate to a structured
     // SelectedBackendFailure with backend_name = UINPUT_TEXT_BACKEND_NAME so
@@ -985,9 +999,7 @@ fn wrap_atspi_failure_as_uinput_fallback(
     let synthetic_selection = FriendlyInsertSelection {
         backend_name: UINPUT_TEXT_BACKEND_NAME,
         target_application_id: String::new(),
-        target_class: friendly_insert_target_class_name(
-            FriendlyInsertTargetClass::Unsupported,
-        ),
+        target_class: friendly_insert_target_class_name(FriendlyInsertTargetClass::Unsupported),
         attempted_backends: Vec::new(),
     };
     FriendlyInsertRunError::SelectedBackendFailure {
@@ -1003,8 +1015,8 @@ fn focused_friendly_target(
     // W9: AT-SPI infrastructure failures are wrapped as a uinput-text
     // SelectedBackendFailure so the wrapper in transcription.rs routes to
     // the uinput helper. See wrap_atspi_failure_as_uinput_fallback above.
-    let focused = unsafe { find_focused_accessible() }
-        .map_err(wrap_atspi_failure_as_uinput_fallback)?;
+    let focused =
+        unsafe { find_focused_accessible() }.map_err(wrap_atspi_failure_as_uinput_fallback)?;
     let snapshot = inspect_focused_target_from_accessible(&focused)
         .map_err(wrap_atspi_failure_as_uinput_fallback)?;
     let target = FriendlyFocusedTarget {
@@ -1399,23 +1411,26 @@ unsafe fn generate_keyboard_string(text: *const c_char) -> Result<(), FriendlyIn
     generate_keyboard_event(0, text, ffi::ATSPI_KEY_STRING)
 }
 
-unsafe fn generate_keyboard_key_press(
-    keyval: glib::ffi::glong,
-) -> Result<(), FriendlyInsertRunError> {
-    generate_keyboard_event(keyval, std::ptr::null(), ffi::ATSPI_KEY_PRESS)
-}
-
-unsafe fn generate_keyboard_key_release(
-    keyval: glib::ffi::glong,
-) -> Result<(), FriendlyInsertRunError> {
-    generate_keyboard_event(keyval, std::ptr::null(), ffi::ATSPI_KEY_RELEASE)
-}
-
-unsafe fn generate_keyboard_key_press_release(
-    keyval: glib::ffi::glong,
-) -> Result<(), FriendlyInsertRunError> {
-    generate_keyboard_event(keyval, std::ptr::null(), ffi::ATSPI_KEY_PRESSRELEASE)
-}
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+// unsafe fn generate_keyboard_key_press(
+//     keyval: glib::ffi::glong,
+// ) -> Result<(), FriendlyInsertRunError> {
+//     generate_keyboard_event(keyval, std::ptr::null(), ffi::ATSPI_KEY_PRESS)
+// }
+//
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+// unsafe fn generate_keyboard_key_release(
+//     keyval: glib::ffi::glong,
+// ) -> Result<(), FriendlyInsertRunError> {
+//     generate_keyboard_event(keyval, std::ptr::null(), ffi::ATSPI_KEY_RELEASE)
+// }
+//
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+// unsafe fn generate_keyboard_key_press_release(
+//     keyval: glib::ffi::glong,
+// ) -> Result<(), FriendlyInsertRunError> {
+//     generate_keyboard_event(keyval, std::ptr::null(), ffi::ATSPI_KEY_PRESSRELEASE)
+// }
 
 unsafe fn generate_keyboard_event(
     keyval: glib::ffi::glong,
@@ -1506,9 +1521,12 @@ mod ffi {
 
     pub const ATSPI_STATE_EDITABLE: AtspiStateType = 7;
     pub const ATSPI_STATE_FOCUSED: AtspiStateType = 12;
-    pub const ATSPI_KEY_PRESS: AtspiKeySynthType = 0;
-    pub const ATSPI_KEY_RELEASE: AtspiKeySynthType = 1;
-    pub const ATSPI_KEY_PRESSRELEASE: AtspiKeySynthType = 2;
+    // W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+    // pub const ATSPI_KEY_PRESS: AtspiKeySynthType = 0;
+    // W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+    // pub const ATSPI_KEY_RELEASE: AtspiKeySynthType = 1;
+    // W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+    // pub const ATSPI_KEY_PRESSRELEASE: AtspiKeySynthType = 2;
     pub const ATSPI_KEY_STRING: AtspiKeySynthType = 4;
 
     #[link(name = "atspi")]

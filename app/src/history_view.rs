@@ -25,26 +25,32 @@ impl HistoryBrowserModel {
         }
     }
 
+    // Test-only — used by history browser model tests.
+    #[cfg(test)]
     pub(crate) fn visible_run_ids(&self) -> Vec<String> {
         self.runs.iter().map(|run| run.run_id.clone()).collect()
     }
 
+    // Test-only — used by history browser model tests.
+    #[cfg(test)]
     pub(crate) fn selected_run_id(&self) -> Option<&str> {
         self.runs
             .get(self.selected_index)
             .map(|run| run.run_id.as_str())
     }
 
+    // Test-only — used by history browser model tests.
+    #[cfg(test)]
     pub(crate) fn selected_details_text(&self) -> Option<String> {
         let selected_run = self.selected_run()?;
         match self.comparison_runs_for_selected() {
-            Some((original_run, rerun)) => {
-                Some(details_text_comparison(original_run, rerun))
-            }
+            Some((original_run, rerun)) => Some(details_text_comparison(original_run, rerun)),
             None => Some(details_text_single(selected_run)),
         }
     }
 
+    // Test-only — used by history browser model tests.
+    #[cfg(test)]
     pub(crate) fn select_run(&mut self, run_id: &str) -> bool {
         let Some(index) = self.runs.iter().position(|run| run.run_id == run_id) else {
             return false;
@@ -79,8 +85,7 @@ impl HistoryBrowserModel {
     }
 
     pub(crate) fn selected_asr_model(&self) -> Option<&str> {
-        self.selected_run()
-            .map(|run| run.entry.model_name.as_str())
+        self.selected_run().map(|run| run.entry.model_name.as_str())
     }
 
     pub(crate) fn selected_cleanup_model(&self) -> Option<&str> {
@@ -92,10 +97,11 @@ impl HistoryBrowserModel {
         })
     }
 
-    pub(crate) fn selected_diarization(&self) -> Option<&DiarizationSummary> {
-        self.selected_run()
-            .and_then(|run| run.entry.diarization.as_ref())
-    }
+    // W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+    // pub(crate) fn selected_diarization(&self) -> Option<&DiarizationSummary> {
+    //     self.selected_run()
+    //         .and_then(|run| run.entry.diarization.as_ref())
+    // }
 
     pub(crate) fn selected_recording_duration_secs(&self) -> f64 {
         self.selected_run()
@@ -116,6 +122,8 @@ impl HistoryBrowserModel {
         self.runs.get(self.selected_index)
     }
 
+    // Test-only — used by selected_details_text which is called from history browser tests.
+    #[cfg(test)]
     fn comparison_runs_for_selected(&self) -> Option<(&ArchivedRun, &ArchivedRun)> {
         let selected_run = self.selected_run()?;
         if let Some(parent_run_id) = selected_run.parent_run_id.as_deref() {
@@ -194,12 +202,8 @@ pub(crate) fn build_history_browser(
         .filter(|m| m.kind == ModelKind::Asr)
         .map(|m| m.id.to_string())
         .collect();
-    let asr_string_list = gtk::StringList::new(
-        &asr_model_ids
-            .iter()
-            .map(String::as_str)
-            .collect::<Vec<_>>(),
-    );
+    let asr_string_list =
+        gtk::StringList::new(&asr_model_ids.iter().map(String::as_str).collect::<Vec<_>>());
     let asr_dropdown = gtk::DropDown::new(Some(asr_string_list), None::<gtk::Expression>);
     let initial_asr = model
         .borrow()
@@ -252,7 +256,9 @@ pub(crate) fn build_history_browser(
         .accepts_tab(false)
         .height_request(150)
         .build();
-    let initial_prompt = settings.effective_cleanup_custom_prompt().unwrap_or_default();
+    let initial_prompt = settings
+        .effective_cleanup_custom_prompt()
+        .unwrap_or_default();
     prompt_text_view.buffer().set_text(&initial_prompt);
 
     let prompt_frame = gtk::Frame::new(None);
@@ -265,9 +271,13 @@ pub(crate) fn build_history_browser(
     // "Use captured OCR" checkbox (shown only when entry has OCR data)
     let use_ocr_check = gtk::CheckButton::with_label("Use captured OCR");
     use_ocr_check.set_active(false);
-    use_ocr_check.set_visible(model.borrow().selected_run()
-        .and_then(|r| r.ocr_text.as_ref())
-        .is_some());
+    use_ocr_check.set_visible(
+        model
+            .borrow()
+            .selected_run()
+            .and_then(|r| r.ocr_text.as_ref())
+            .is_some(),
+    );
 
     // Cleanup model picker + buttons row
     let cleanup_model_ids: Vec<String> = supported_models()
@@ -390,11 +400,7 @@ pub(crate) fn build_history_browser(
                 if let Some(entry) = rerun_archived_run(run_id, asr_model_id) {
                     rerun_raw_card_label.set_label(&entry.transcript_text);
                     rerun_raw_card_frame.set_visible(true);
-                    if let Some(cleaned) = entry
-                        .cleanup
-                        .as_ref()
-                        .and_then(|c| c.cleaned_text())
-                    {
+                    if let Some(cleaned) = entry.cleanup.as_ref().and_then(|c| c.cleaned_text()) {
                         let original_text = original_cleaned_label.label();
                         let diff_markup = word_diff_markup(&original_text, cleaned);
                         rerun_cleaned_card_label.set_markup(&diff_markup);
@@ -408,9 +414,8 @@ pub(crate) fn build_history_browser(
     }
 
     // Rerun cleanup button
-    if let Some(rerun_cleanup) = rerun_cleanup {
-        rerun_cleanup_button
-            .set_sensitive(model.borrow().cleanup_rerunnable_run_id().is_some());
+    if let Some(_rerun_cleanup) = rerun_cleanup {
+        rerun_cleanup_button.set_sensitive(model.borrow().cleanup_rerunnable_run_id().is_some());
         {
             let model = model.clone();
             let cleanup_dropdown = cleanup_dropdown.clone();
@@ -467,8 +472,9 @@ pub(crate) fn build_history_browser(
                         let _ = tx.send(result);
                     })
                     .expect("failed to spawn cleanup rerun thread");
-                gtk::glib::timeout_add_local(std::time::Duration::from_millis(100), move || {
-                    match rx.try_recv() {
+                gtk::glib::timeout_add_local(
+                    std::time::Duration::from_millis(100),
+                    move || match rx.try_recv() {
                         Ok(result) => {
                             button.set_sensitive(true);
                             button.set_label("Run cleanup");
@@ -476,14 +482,12 @@ pub(crate) fn build_history_browser(
                                 if let Some(cleanup) = entry.cleanup.as_ref() {
                                     if let Some(cleaned) = cleanup.cleaned_text() {
                                         let original_text = original_cleaned_label.label();
-                                        let diff_markup =
-                                            word_diff_markup(&original_text, cleaned);
+                                        let diff_markup = word_diff_markup(&original_text, cleaned);
                                         rerun_cleaned_card_label.set_markup(&diff_markup);
                                         rerun_cleaned_card_frame.set_visible(true);
                                     }
                                     let elapsed_secs = cleanup.elapsed_ms as f64 / 1000.0;
-                                    cleanup_timing_label
-                                        .set_label(&format!("{elapsed_secs:.1}s"));
+                                    cleanup_timing_label.set_label(&format!("{elapsed_secs:.1}s"));
                                     cleanup_timing_label.set_visible(true);
                                 }
                             }
@@ -497,8 +501,8 @@ pub(crate) fn build_history_browser(
                             button.set_label("Run cleanup");
                             gtk::glib::ControlFlow::Break
                         }
-                    }
-                });
+                    },
+                );
             });
         }
     } else {
@@ -678,10 +682,14 @@ fn populate_detail_for_run(
 // Text-only detail output (used by selected_details_text for tests)
 // ---------------------------------------------------------------------------
 
+// Test-only — called from history_run_details_text_includes_all_fields test.
+#[cfg(test)]
 pub(crate) fn history_run_details_text(run: &ArchivedRun) -> String {
     details_text_single(run)
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn details_text_single(run: &ArchivedRun) -> String {
     let entry = &run.entry;
     let mut details = format!("Original Raw Transcript:\n{}", entry.transcript_text);
@@ -697,6 +705,8 @@ fn details_text_single(run: &ArchivedRun) -> String {
     details
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn details_text_comparison(original_run: &ArchivedRun, rerun: &ArchivedRun) -> String {
     let original_cleaned_text = original_run
         .entry
@@ -727,6 +737,8 @@ fn details_text_comparison(original_run: &ArchivedRun, rerun: &ArchivedRun) -> S
     details
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn build_metadata_lines(run: &ArchivedRun) -> Vec<String> {
     let entry = &run.entry;
     let mut lines = vec![
@@ -806,6 +818,8 @@ fn build_metadata_lines(run: &ArchivedRun) -> Vec<String> {
     lines
 }
 
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+#[allow(dead_code)]
 fn comparison_metadata_lines(original_run: &ArchivedRun, rerun: &ArchivedRun) -> Vec<String> {
     let original_cleanup_model = original_run
         .entry
@@ -1029,9 +1043,7 @@ fn word_diff_markup(old_text: &str, new_text: &str) -> String {
             }
             DiffOp::Added(word) => {
                 let escaped = glib::markup_escape_text(word);
-                parts.push(format!(
-                    "<span foreground=\"#2ec27e\">{escaped}</span>"
-                ));
+                parts.push(format!("<span foreground=\"#2ec27e\">{escaped}</span>"));
             }
         }
     }
@@ -1049,11 +1061,15 @@ fn format_epoch_ms(epoch_ms: u64) -> String {
     const DAYS_IN_MONTH: &[u64] = &[31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 
     fn is_leap_year(year: u64) -> bool {
-        (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+        (year.is_multiple_of(4) && !year.is_multiple_of(100)) || year.is_multiple_of(400)
     }
 
     fn days_in_year(year: u64) -> u64 {
-        if is_leap_year(year) { 366 } else { 365 }
+        if is_leap_year(year) {
+            366
+        } else {
+            365
+        }
     }
 
     fn days_in_month(year: u64, month: usize) -> u64 {
@@ -1238,10 +1254,7 @@ pub(crate) fn build_diarization_timeline(
         } else {
             speaker.to_string()
         };
-        let label = gtk::Label::builder()
-            .label(&label_text)
-            .xalign(0.0)
-            .build();
+        let label = gtk::Label::builder().label(&label_text).xalign(0.0).build();
 
         let legend_item = gtk::Box::new(Orientation::Horizontal, 4);
         legend_item.append(&swatch);
@@ -1293,7 +1306,10 @@ fn history_row_title(run: &ArchivedRun) -> String {
 }
 
 fn history_row_subtitle(run: &ArchivedRun) -> String {
-    format!("{} \u{2022} {} ms", run.entry.model_name, run.entry.elapsed_ms)
+    format!(
+        "{} \u{2022} {} ms",
+        run.entry.model_name, run.entry.elapsed_ms
+    )
 }
 
 fn picker_label(text: &str) -> gtk::Label {
@@ -1509,9 +1525,9 @@ mod history_view_tests {
 
         assert!(details.contains("Original raw transcript:\nhello from pepper x"));
         assert!(details.contains("Rerun raw transcript:\nhello from pepper ex"));
-        assert!(details.contains(
-            "Cleanup model: qwen3.5-2b-q4_k_m.gguf -> qwen3.5-0.8b-q4_k_m.gguf"
-        ));
+        assert!(
+            details.contains("Cleanup model: qwen3.5-2b-q4_k_m.gguf -> qwen3.5-0.8b-q4_k_m.gguf")
+        );
         assert!(details.contains("Cleanup prompt profile: ordinary-dictation -> literal-dictation"));
     }
 

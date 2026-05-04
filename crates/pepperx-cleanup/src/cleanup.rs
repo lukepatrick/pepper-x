@@ -3,7 +3,9 @@ use std::fmt;
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+// W4c-deadcode: Duration unused after dead-code comment-outs; clippy 1.95.0 unused-imports lint
+// use std::time::{Duration, Instant};
+use std::time::Instant;
 
 const CLEANUP_BACKEND_NAME: &str = "llama.cpp";
 pub const ORDINARY_DICTATION_PROMPT_PROFILE: &str = "ordinary-dictation";
@@ -13,7 +15,8 @@ const CLEANUP_OCR_CONTEXT_LIMIT: usize = 4000;
 const CLEANUP_CORRECTION_MEMORY_LIMIT: usize = 2048;
 const CLEANUP_CUSTOM_PROMPT_LIMIT: usize = 2048;
 const CLEANUP_TEMPERATURE: f32 = 0.1;
-const CLEANUP_SUBPROCESS_TIMEOUT: Duration = Duration::from_secs(30);
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+// const CLEANUP_SUBPROCESS_TIMEOUT: Duration = Duration::from_secs(30);
 
 const DEFAULT_CLEANUP_HELPER_BIN: &str = "/usr/libexec/pepper-x/pepperx-cleanup-helper";
 
@@ -328,11 +331,10 @@ pub fn run_cleanup(request: &CleanupRequest) -> Result<CleanupResult, CleanupErr
         temperature: CLEANUP_TEMPERATURE,
     };
 
-    let request_json = serde_json::to_string(&helper_request).map_err(|error| {
-        CleanupError::SubprocessError {
+    let request_json =
+        serde_json::to_string(&helper_request).map_err(|error| CleanupError::SubprocessError {
             message: format!("failed to serialize helper request: {error}"),
-        }
-    })?;
+        })?;
 
     let generated = spawn_cleanup_helper(&request_json, &model_name)?;
 
@@ -387,10 +389,7 @@ fn send_to_helper(request_json: &str) -> Result<CleanupHelperResponse, CleanupEr
     })
 }
 
-fn spawn_cleanup_helper(
-    request_json: &str,
-    model_name: &str,
-) -> Result<String, CleanupError> {
+fn spawn_cleanup_helper(request_json: &str, model_name: &str) -> Result<String, CleanupError> {
     let response = send_to_helper(request_json)?;
 
     if !response.ok {
@@ -412,11 +411,9 @@ fn spawn_cleanup_helper(
         });
     }
 
-    response
-        .text
-        .ok_or_else(|| CleanupError::EmptyCompletion {
-            model_name: model_name.into(),
-        })
+    response.text.ok_or_else(|| CleanupError::EmptyCompletion {
+        model_name: model_name.into(),
+    })
 }
 
 fn send_to_helper_raw(request_json: &str) -> Result<String, CleanupError> {
@@ -470,14 +467,16 @@ fn send_to_helper_raw(request_json: &str) -> Result<String, CleanupError> {
         .map_err(|error| CleanupError::SubprocessError {
             message: format!("failed to write to cleanup helper: {error}"),
         })?;
-    stdin.write_all(b"\n").map_err(|error| {
-        CleanupError::SubprocessError {
+    stdin
+        .write_all(b"\n")
+        .map_err(|error| CleanupError::SubprocessError {
             message: format!("failed to write newline to cleanup helper: {error}"),
-        }
-    })?;
-    stdin.flush().map_err(|error| CleanupError::SubprocessError {
-        message: format!("failed to flush cleanup helper stdin: {error}"),
-    })?;
+        })?;
+    stdin
+        .flush()
+        .map_err(|error| CleanupError::SubprocessError {
+            message: format!("failed to flush cleanup helper stdin: {error}"),
+        })?;
 
     let stdout = child
         .stdout
@@ -503,43 +502,42 @@ fn send_to_helper_raw(request_json: &str) -> Result<String, CleanupError> {
     Ok(response_line)
 }
 
-fn wait_with_timeout(
-    child: &mut std::process::Child,
-    timeout: Duration,
-) -> Result<std::process::Output, String> {
-    let deadline = Instant::now() + timeout;
-    loop {
-        match child.try_wait() {
-            Ok(Some(status)) => {
-                // Child has exited; collect output.
-                let mut stdout = Vec::new();
-                let mut stderr = Vec::new();
-                if let Some(mut out) = child.stdout.take() {
-                    std::io::Read::read_to_end(&mut out, &mut stdout).ok();
-                }
-                if let Some(mut err) = child.stderr.take() {
-                    std::io::Read::read_to_end(&mut err, &mut stderr).ok();
-                }
-                return Ok(std::process::Output {
-                    status,
-                    stdout,
-                    stderr,
-                });
-            }
-            Ok(None) => {
-                if Instant::now() > deadline {
-                    return Err(format!(
-                        "cleanup helper timed out after {timeout:?}"
-                    ));
-                }
-                std::thread::sleep(Duration::from_millis(10));
-            }
-            Err(error) => {
-                return Err(format!("failed to wait on cleanup helper: {error}"));
-            }
-        }
-    }
-}
+// W4c-deadcode: never used; clippy 1.95.0 dead-code lint
+// fn wait_with_timeout(
+//     child: &mut std::process::Child,
+//     timeout: Duration,
+// ) -> Result<std::process::Output, String> {
+//     let deadline = Instant::now() + timeout;
+//     loop {
+//         match child.try_wait() {
+//             Ok(Some(status)) => {
+//                 // Child has exited; collect output.
+//                 let mut stdout = Vec::new();
+//                 let mut stderr = Vec::new();
+//                 if let Some(mut out) = child.stdout.take() {
+//                     std::io::Read::read_to_end(&mut out, &mut stdout).ok();
+//                 }
+//                 if let Some(mut err) = child.stderr.take() {
+//                     std::io::Read::read_to_end(&mut err, &mut stderr).ok();
+//                 }
+//                 return Ok(std::process::Output {
+//                     status,
+//                     stdout,
+//                     stderr,
+//                 });
+//             }
+//             Ok(None) => {
+//                 if Instant::now() > deadline {
+//                     return Err(format!("cleanup helper timed out after {timeout:?}"));
+//                 }
+//                 std::thread::sleep(Duration::from_millis(10));
+//             }
+//             Err(error) => {
+//                 return Err(format!("failed to wait on cleanup helper: {error}"));
+//             }
+//         }
+//     }
+// }
 
 // ---------------------------------------------------------------------------
 // Output sanitization
@@ -582,7 +580,10 @@ pub(crate) fn strip_reasoning_tags(output: &str) -> String {
             // first newline after the tag (the model's internal reasoning).
             if result[..open_start].trim().is_empty() {
                 let after_tag = &result[open_end..];
-                let skip = after_tag.find('\n').map(|p| p + 1).unwrap_or(after_tag.len());
+                let skip = after_tag
+                    .find('\n')
+                    .map(|p| p + 1)
+                    .unwrap_or(after_tag.len());
                 result = after_tag[skip..].to_string();
             }
             break;

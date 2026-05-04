@@ -54,15 +54,27 @@ struct HelperResponse {
 
 impl HelperResponse {
     fn ok() -> Self {
-        Self { ok: true, text: None, error: None }
+        Self {
+            ok: true,
+            text: None,
+            error: None,
+        }
     }
 
     fn ok_text(text: String) -> Self {
-        Self { ok: true, text: Some(text), error: None }
+        Self {
+            ok: true,
+            text: Some(text),
+            error: None,
+        }
     }
 
     fn err(msg: String) -> Self {
-        Self { ok: false, text: None, error: Some(msg) }
+        Self {
+            ok: false,
+            text: None,
+            error: Some(msg),
+        }
     }
 }
 
@@ -92,11 +104,7 @@ struct ModelSlot {
 
 impl ModelSlot {
     /// Load a new model, discarding any previous state.
-    fn load(
-        backend: &LlamaBackend,
-        model_path: &PathBuf,
-        n_threads: i32,
-    ) -> Option<Self> {
+    fn load(backend: &LlamaBackend, model_path: &PathBuf, n_threads: i32) -> Option<Self> {
         let model_params = LlamaModelParams::default();
         let model_params = std::pin::pin!(model_params);
         match LlamaModel::load_from_file(backend, model_path, &model_params) {
@@ -160,7 +168,7 @@ fn main() {
     };
 
     // P-cores only on Intel hybrid; clamp to [2, 4].
-    let n_threads = (num_cpus::get_physical() as i32).min(4).max(2);
+    let n_threads = (num_cpus::get_physical() as i32).clamp(2, 4);
 
     let mut slot: Option<ModelSlot> = None;
 
@@ -178,9 +186,7 @@ fn main() {
         let request: HelperRequest = match serde_json::from_str(&line) {
             Ok(r) => r,
             Err(e) => {
-                write_response(&HelperResponse::err(format!(
-                    "invalid request JSON: {e}"
-                )));
+                write_response(&HelperResponse::err(format!("invalid request JSON: {e}")));
                 continue;
             }
         };
@@ -243,7 +249,14 @@ fn handle_request(
         HelperRequest::Prefill {
             system_prompt,
             model_path: _,
-        } => handle_prefill(model, backend, n_threads, &system_prompt, prefill_state, warm_ctx),
+        } => handle_prefill(
+            model,
+            backend,
+            n_threads,
+            &system_prompt,
+            prefill_state,
+            warm_ctx,
+        ),
 
         HelperRequest::Generate {
             prompt,
@@ -388,12 +401,10 @@ fn handle_generate(
             (wc, 0)
         }
         // No context at all — create fresh (expensive, first call only).
-        (_, None) => {
-            match new_context(model, backend, n_threads) {
-                Ok(c) => (c, 0),
-                Err(resp) => return resp,
-            }
-        }
+        (_, None) => match new_context(model, backend, n_threads) {
+            Ok(c) => (c, 0),
+            Err(resp) => return resp,
+        },
     };
 
     // Decode only the suffix tokens (everything after the prefilled prefix).
@@ -414,10 +425,8 @@ fn handle_generate(
     let decode_ms = t0.elapsed().as_millis();
 
     // --- Autoregressive generation ---
-    let mut sampler = LlamaSampler::chain_simple([
-        LlamaSampler::temp(temperature),
-        LlamaSampler::dist(1),
-    ]);
+    let mut sampler =
+        LlamaSampler::chain_simple([LlamaSampler::temp(temperature), LlamaSampler::dist(1)]);
 
     let deadline = Instant::now() + INFERENCE_TIMEOUT;
     let mut generated = String::new();
@@ -430,11 +439,10 @@ fn handle_generate(
     let mut batch = LlamaBatch::new(1, 1);
     let mut first_iter = true;
 
+    #[allow(clippy::explicit_counter_loop)] // TODO: W12 — n_cur is mutated inside the loop body
     for _ in 0..max_tokens {
-        if !first_iter {
-            if ctx.decode(&mut batch).is_err() {
-                break;
-            }
+        if !first_iter && ctx.decode(&mut batch).is_err() {
+            break;
         }
         first_iter = false;
 

@@ -258,9 +258,9 @@ impl ActiveRecording {
                 .take()
                 .expect("recording worker should be present");
 
-            return worker.join().map_err(|_| {
+            worker.join().map_err(|_| {
                 RecordingError::new("Pepper X recording worker panicked while stopping")
-            })?;
+            })?
         }
 
         #[cfg(not(target_os = "linux"))]
@@ -283,7 +283,7 @@ pub fn start_recording_with_chunk_sink(
 ) -> Result<ActiveRecording, RecordingError> {
     #[cfg(target_os = "linux")]
     {
-        return start_linux_recording(request, chunk_sink);
+        start_linux_recording(request, chunk_sink)
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -298,7 +298,7 @@ pub fn probe_signal_level(
 ) -> Result<SignalLevelSample, SignalLevelError> {
     #[cfg(target_os = "linux")]
     {
-        return probe_linux_signal_level(selected_microphone);
+        probe_linux_signal_level(selected_microphone)
     }
 
     #[cfg(not(target_os = "linux"))]
@@ -328,7 +328,12 @@ fn start_linux_recording(
     let worker_request = request.clone();
     let worker_chunk_sink = chunk_sink.clone();
     let worker = thread::spawn(move || {
-        capture_recording(worker_request, control_receiver, setup_sender, worker_chunk_sink)
+        capture_recording(
+            worker_request,
+            control_receiver,
+            setup_sender,
+            worker_chunk_sink,
+        )
     });
 
     match setup_receiver
@@ -686,9 +691,8 @@ fn configure_capture_stream(
             // State for streaming chunk dispatch — only allocated when a sink
             // is provided.
             let chunk_sink = Rc::new(RefCell::new(chunk_sink));
-            let streaming_pending: Rc<RefCell<Vec<f32>>> = Rc::new(RefCell::new(
-                Vec::with_capacity(STREAMING_CHUNK_SAMPLES),
-            ));
+            let streaming_pending: Rc<RefCell<Vec<f32>>> =
+                Rc::new(RefCell::new(Vec::with_capacity(STREAMING_CHUNK_SAMPLES)));
             move |stream, format| match stream.dequeue_buffer() {
                 None => {}
                 Some(mut buffer) => {

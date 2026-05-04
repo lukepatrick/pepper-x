@@ -95,18 +95,18 @@ fn build_xkb_char_map() -> Result<HashMap<char, KeyChord>, String> {
 
     let keymap = xkb::Keymap::new_from_names(
         &context,
-        "",      // rules (default)
-        "",      // model (default)
+        "", // rules (default)
+        "", // model (default)
         &layout,
         &variant,
-        None,    // options
+        None, // options
         xkb::KEYMAP_COMPILE_NO_FLAGS,
     )
     .ok_or_else(|| {
         format!("failed to compile XKB keymap for layout '{layout}', variant '{variant}'")
     })?;
 
-    let state = xkb::State::new(&keymap);
+    let _state = xkb::State::new(&keymap);
     let mut char_map = HashMap::new();
 
     let min_keycode = keymap.min_keycode().raw();
@@ -162,15 +162,18 @@ fn build_xkb_char_map() -> Result<HashMap<char, KeyChord>, String> {
     }
 
     // Ensure space, enter, tab are mapped even if the keymap is weird
-    char_map
-        .entry(' ')
-        .or_insert(KeyChord { keycode: KeyCode::KEY_SPACE, shift: false });
-    char_map
-        .entry('\n')
-        .or_insert(KeyChord { keycode: KeyCode::KEY_ENTER, shift: false });
-    char_map
-        .entry('\t')
-        .or_insert(KeyChord { keycode: KeyCode::KEY_TAB, shift: false });
+    char_map.entry(' ').or_insert(KeyChord {
+        keycode: KeyCode::KEY_SPACE,
+        shift: false,
+    });
+    char_map.entry('\n').or_insert(KeyChord {
+        keycode: KeyCode::KEY_ENTER,
+        shift: false,
+    });
+    char_map.entry('\t').or_insert(KeyChord {
+        keycode: KeyCode::KEY_TAB,
+        shift: false,
+    });
 
     eprintln!(
         "[Pepper X uinput] XKB layout '{layout}' loaded, {} characters mapped",
@@ -225,9 +228,7 @@ fn detect_layout() -> String {
 // Virtual keyboard
 // ---------------------------------------------------------------------------
 
-fn create_virtual_keyboard(
-    char_map: &HashMap<char, KeyChord>,
-) -> Result<VirtualDevice, String> {
+fn create_virtual_keyboard(char_map: &HashMap<char, KeyChord>) -> Result<VirtualDevice, String> {
     let mut keys = AttributeSet::<KeyCode>::new();
 
     // Register all keycodes from the character map

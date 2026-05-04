@@ -14,6 +14,8 @@ const SETTINGS_FILE_NAME: &str = "settings.json";
 const SETUP_STATE_FILE_NAME: &str = "setup.json";
 pub const DEFAULT_CLEANUP_PROMPT_PROFILE: &str = "ordinary-dictation";
 pub const LAUNCH_AT_LOGIN_DESKTOP_FILE_NAME: &str = "pepper-x-autostart.desktop";
+// Test-only — referenced by settings_launch_at_login_points_at_the_packaged_autostart_desktop_file test.
+#[cfg(test)]
 pub const LAUNCH_AT_LOGIN_DESKTOP_FILE_PATH: &str = "/etc/xdg/autostart/pepper-x-autostart.desktop";
 const LAUNCH_AT_LOGIN_DESKTOP_TEMPLATE: &str =
     include_str!("../../packaging/deb/pepper-x-autostart.desktop");
@@ -243,6 +245,8 @@ pub fn corrections_store_path() -> PathBuf {
     state_root().join("corrections")
 }
 
+// Test-only — called from settings_launch_at_login_points_at_the_packaged_autostart_desktop_file test.
+#[cfg(test)]
 pub fn launch_at_login_desktop_file_path() -> &'static std::path::Path {
     std::path::Path::new(LAUNCH_AT_LOGIN_DESKTOP_FILE_PATH)
 }
